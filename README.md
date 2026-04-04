@@ -17,6 +17,9 @@ pinned: false
 
 RTLRepair-Env is a specialized **AI agent benchmark environment** for hardware engineering. It challenges LLMs to find and fix bugs in Verilog source code, mirroring the high-stakes world of semiconductor design.
 
+- **🚀 Live Space:** [https://huggingface.co/spaces/cybertronak/rtlrepair-env](https://huggingface.co/spaces/cybertronak/rtlrepair-env)
+- **💻 GitHub Code:** [https://github.com/ankit-cybertron/Verilog-RTL-Simulation-Repair-](https://github.com/ankit-cybertron/Verilog-RTL-Simulation-Repair-)
+
 ---
 
 ## 📖 Evaluation Guide for Judges
