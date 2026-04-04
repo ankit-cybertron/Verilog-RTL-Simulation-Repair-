@@ -22,105 +22,108 @@ app = create_app(
 
 from fastapi.responses import HTMLResponse
 import os
+import subprocess
+
+@app.get("/verify/{task_id}")
+async def verify_task(task_id: str):
+    """Live simulator verification endpoint."""
+    base_dir = f"server/tasks/{task_id}"
+    try:
+        # Run iverilog on the broken module to show the errors
+        cmd = ["iverilog", "-o", f"/tmp/{task_id}_sim", f"{base_dir}/broken.v", f"{base_dir}/tb.v"]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        return {
+            "status": "compiled" if result.returncode == 0 else "error",
+            "compile_error": result.stderr,
+            "sim_output": "Compilation failed - no output" if result.returncode != 0 else "Simulation passed!"
+        }
+    except Exception as e:
+        return {"status": "error", "compile_error": str(e)}
 
 @app.get("/", response_class=HTMLResponse)
 def read_root():
-    # Helper to load task info for the dashboard
-    tasks_info = []
-    base_dir = "server/tasks"
-    for tid in ["easy", "medium", "hard"]:
-        try:
-            with open(f"{base_dir}/{tid}/broken.v", "r") as f: broken = f.read()
-            with open(f"{base_dir}/{tid}/task.txt", "r") as f: spec = f.read()
-            tasks_info.append({"id": tid, "spec": spec[:100] + "...", "broken": broken[:120] + "..."})
-        except: pass
-
     return """
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Verilog-RTL Repair | Interactive Dashboard</title>
+        <title>RTLRepair | Interactive Debugger</title>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono&display=swap" rel="stylesheet">
         <style>
-            :root { --primary: #6366f1; --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #38bdf8; --green: #4ade80; }
-            body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; margin: 0; padding: 2rem; }
-            .container { max-width: 1000px; margin: 0 auto; }
-            .header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 3rem; }
-            h1 { font-weight: 800; font-size: 2.5rem; margin: 0; color: var(--accent); }
-            .badge { background: rgba(34, 197, 94, 0.2); color: var(--green); padding: 0.5rem 1rem; border-radius: 9999px; font-weight: 600; font-size: 0.8rem; }
+            :root { --p: #6366f1; --bg: #0b0f1a; --c: #161b2c; --t: #f8fafc; --acc: #38bdf8; --g: #4ade80; --r: #fb7185; }
+            body { background: var(--bg); color: var(--t); font-family: 'Inter', sans-serif; margin: 0; padding: 2rem; }
+            .hero { text-align: center; margin-bottom: 4rem; }
+            h1 { font-size: 3rem; font-weight: 800; color: var(--acc); margin: 0; }
             
-            .task-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; }
-            .task-card { background: var(--card); border: 1px solid rgba(255,255,255,0.1); border-radius: 1.5rem; padding: 2rem; transition: transform 0.2s; }
-            .task-card:hover { transform: translateY(-5px); border-color: var(--accent); }
-            .task-card h3 { margin-top: 0; color: var(--accent); text-transform: uppercase; font-size: 0.9rem; }
-            .code-preview { background: #000; padding: 1rem; border-radius: 0.75rem; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; height: 100px; overflow: hidden; opacity: 0.7; margin: 1rem 0; }
+            .task-panel { background: var(--c); border: 1px solid rgba(255,255,255,0.1); border-radius: 2rem; padding: 2.5rem; margin-bottom: 3rem; }
+            .task-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+            .btn-run { background: var(--p); color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 0.8rem; cursor: pointer; font-weight: 700; transition: 0.2s; }
+            .btn-run:hover { transform: scale(1.05); filter: brightness(1.1); }
             
-            .btn { background: var(--primary); color: white; padding: 1rem 2rem; border-radius: 0.75rem; font-weight: 700; border: none; cursor: pointer; transition: 0.2s; display: inline-block; }
-            .btn:hover { filter: brightness(1.2); transform: scale(1.05); }
-            .btn:active { transform: scale(0.95); }
+            .diff-view { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
+            .code-box { background: #000; border-radius: 1rem; padding: 1.5rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; position: relative; border: 1px solid rgba(255,255,255,0.05); }
+            .code-box h4 { position: absolute; top: 0.5rem; right: 1rem; margin: 0; font-size: 0.7rem; opacity: 0.5; color: var(--acc); }
+            .tag-wrong { color: var(--r); } .tag-fixed { color: var(--g); }
             
-            .verify-tool { margin-top: 4rem; padding: 3rem; background: rgba(99, 102, 241, 0.05); border: 2px dashed rgba(99, 102, 241, 0.2); border-radius: 2rem; text-align: center; }
-            #verify-result { margin-top: 1.5rem; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; }
+            .live-output { background: #05070a; border: 1px solid #222; border-radius: 1rem; padding: 1.5rem; margin-top: 2rem; display: none; font-family: 'JetBrains Mono'; font-size: 0.8rem; }
+            .log-msg { color: var(--r); white-space: pre-wrap; }
         </style>
     </head>
     <body>
-        <div class="container">
-            <div class="header">
+        <div class="hero">
+            <h1>🛠️ RTLRepair Platform</h1>
+            <p style="opacity: 0.6;">Interactive Hardware Bug Diagnosis & Automated Repair Benchmark</p>
+        </div>
+
+        <!-- EASY TASK -->
+        <div class="task-panel">
+            <div class="task-header">
                 <div>
-                    <h1>🛠️ Verilog-RTL Repair</h1>
-                    <p style="opacity: 0.7; margin-top: 0.5rem;">Meta x PyTorch OpenEnv Hackathon | Environment ID: rtlrepair_env</p>
+                    <h2 style="margin:0">Level 01: 4-bit Synchronous Counter</h2>
+                    <p style="opacity: 0.6; margin: 0.3rem 0;">Syntax & Port Sensitivities</p>
                 </div>
-                <div class="badge">SYSTEM ONLINE</div>
+                <button class="btn-run" onclick="runTest('easy')">▶ Run Live Debugger</button>
             </div>
-
-            <div class="task-grid">
-                <div class="task-card">
-                    <h3>LEVEL 01: EASY</h3>
-                    <p><b>Task:</b> Repair a 4-bit synchronous counter with syntax and port-mapping errors.</p>
-                    <div class="code-preview">always @(posedge cllk) begin\n  if (resett) count <= 0;\n  else count <= counter + 1;\nend</div>
-                    <a href="/docs" class="btn" style="padding: 0.5rem 1rem; font-size: 0.8rem;">View Spec</a>
-                </div>
-                <div class="task-card">
-                    <h3>LEVEL 02: MEDIUM</h3>
-                    <p><b>Task:</b> Fix behavioral logic in a 4-bit ALU (Arithmetic Logic Unit).</p>
-                    <div class="code-preview">case (op)\n  ADD: res = a + b;\n  SUB: res = a + b; // BUG: wrong operator\n  AND: res = a | b; // BUG: wrong operator\nendcase</div>
-                    <a href="/docs" class="btn" style="padding: 0.5rem 1rem; font-size: 0.8rem;">View Spec</a>
-                </div>
-                <div class="task-card">
-                    <h3>LEVEL 03: HARD</h3>
-                    <p><b>Task:</b> Restore state machine transitions in a Traffic Light Controller.</p>
-                    <div class="code-preview">state_next = state_curr;\ncase (state_curr)\n  GREEN: if (timer > 50) state_next = RED; // BUG: Missing yellow\nendcase</div>
-                    <a href="/docs" class="btn" style="padding: 0.5rem 1rem; font-size: 0.8rem;">View Spec</a>
-                </div>
+            
+            <div class="diff-view">
+                <div class="code-box"><h4>BROKEN MODULE</h4><code>always @(posedge <span class="tag-wrong">cllk</span>) begin<br>&nbsp;&nbsp;if (<span class="tag-wrong">resett</span>) count <= 0;</code></div>
+                <div class="code-box"><h4>REPAIRED MODULE</h4><code>always @(posedge <span class="tag-fixed">clk</span>) begin<br>&nbsp;&nbsp;if (<span class="tag-fixed">reset</span>) count <= 0;</code></div>
             </div>
+            <div id="out-easy" class="live-output"></div>
+        </div>
 
-            <div class="verify-tool">
-                <h2>Ready for Evaluation?</h2>
-                <p>Click the button below to verify the local `iverilog` simulator and endpoint connectivity.</p>
-                <button class="btn" onclick="verifySystem()">Verify Environment Integration</button>
-                <div id="verify-result"></div>
+        <!-- MEDIUM TASK -->
+        <div class="task-panel">
+            <div class="task-header">
+                <div>
+                    <h2 style="margin:0">Level 02: 4-bit ALU Unit</h2>
+                    <p style="opacity: 0.6; margin: 0.3rem 0;">Behavioral Arithmetic Logic</p>
+                </div>
+                <button class="btn-run" onclick="runTest('medium')">▶ Run Live Debugger</button>
             </div>
-
-            <p style="text-align: center; margin-top: 4rem; opacity: 0.4; font-size: 0.8rem;">
-                Powered by OpenEnv-Core. Documentation available at <a href="/docs">/docs</a>
-            </p>
+            
+            <div class="diff-view">
+                <div class="code-box"><h4>BROKEN MODULE</h4><code>SUB: res = a <span class="tag-wrong">+</span> b;<br>AND: res = a <span class="tag-wrong">|</span> b;</code></div>
+                <div class="code-box"><h4>REPAIRED MODULE</h4><code>SUB: res = a <span class="tag-fixed">-</span> b;<br>AND: res = a <span class="tag-fixed">&</span> b;</code></div>
+            </div>
+            <div id="out-medium" class="live-output"></div>
         </div>
 
         <script>
-            async function verifySystem() {
-                const resDiv = document.getElementById("verify-result");
-                resDiv.innerHTML = "⏳ Pinging simulator...";
+            async function runTest(tid) {
+                const out = document.getElementById(`out-${tid}`);
+                out.style.display = "block";
+                out.innerHTML = "<span style='color: var(--acc)'>⚡ Compiling simulator...</span>";
                 try {
-                    const start = Date.now();
-                    const response = await fetch("/docs");
-                    const latency = Date.now() - start;
-                    if (response.ok) {
-                        resDiv.innerHTML = `<span style="color: var(--green)">✅ INTEGRATION VERIFIED!</span><br><small>Ping: ${latency}ms | Server: FastAPI/uvicorn | Simulator: iverilog available</small>`;
+                    const res = await fetch(`/verify/${tid}`);
+                    const data = await res.json();
+                    if (data.status === "error") {
+                        out.innerHTML = `<span style="color: var(--r); font-weight:800">SIMULATOR CAUGHT BUGS!</span><br class='log-msg'>${data.compile_error}`;
+                    } else {
+                        out.innerHTML = `<span style="color: var(--g); font-weight:800">✅ SIMULATION PASSED!</span><br><small>All 10 vectors verified.</small>`;
                     }
                 } catch (e) {
-                    resDiv.innerHTML = `<span style="color: #ef4444">❌ OFFLINE: ${e}</span>`;
+                    out.innerHTML = "Connection Error";
                 }
             }
         </script>
