@@ -27,11 +27,11 @@ MODEL_NAME   = os.getenv("MODEL_NAME", "gpt-4o-mini")
 HF_TOKEN     = os.getenv("HF_TOKEN")  # MUST NOT HAVE DEFAULT
 HF_SPACE_URL = os.getenv("HF_SPACE_URL") # Required to connect to environment
 
-#LLM_API_KEY = os.getenv("OPENAI_API_KEY") or HF_TOKEN
-LLM_API_KEY = HF_TOKEN # The checklist implies HF_TOKEN is the primary key
+# Robust API Key discovery
+LLM_API_KEY = os.getenv("OPENAI_API_KEY") or HF_TOKEN
 
-if not HF_TOKEN:
-    raise ValueError("HF_TOKEN is required for submission.")
+if not LLM_API_KEY:
+    raise ValueError("Missing API key. Please export HF_TOKEN or OPENAI_API_KEY.")
 
 # ── Episode config ────────────────────────────────────────────────────────────
 TASKS = ["easy", "medium", "hard"]
