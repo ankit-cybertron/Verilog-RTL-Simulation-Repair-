@@ -26,19 +26,35 @@ import subprocess
 
 @app.get("/verify/{task_id}")
 async def verify_task(task_id: str):
-    """Live simulator verification endpoint."""
+    """Live simulator verification endpoint (Compiler + Executor + Scorer)."""
     base_dir = f"server/tasks/{task_id}"
+    sim_bin = f"/tmp/{task_id}_sim"
+    totals = {"easy": 5, "medium": 10, "hard": 20}
     try:
-        # Run iverilog on the broken module to show the errors
-        cmd = ["iverilog", "-o", f"/tmp/{task_id}_sim", f"{base_dir}/broken.v", f"{base_dir}/testbench.v"]
+        # STEP 1: Compilation
+        cmd = ["iverilog", "-o", sim_bin, f"{base_dir}/broken.v", f"{base_dir}/testbench.v"]
         result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            return {"status": "error", "compile_error": result.stderr, "score": 0.0}
+        
+        # STEP 2: Execution
+        sim_res = subprocess.run(["vvp", sim_bin], capture_output=True, text=True)
+        passed = totals[task_id]
+        if "failed=" in sim_res.stdout:
+            failed_count = int(sim_res.stdout.split("failed=")[1].split()[0])
+            passed = totals[task_id] - failed_count
+        
+        score = (passed / totals[task_id]) * 0.7 + 0.2 # 0.7 for vectors + 0.2 for compilation
+        
         return {
-            "status": "compiled" if result.returncode == 0 else "error",
-            "compile_error": result.stderr,
-            "sim_output": "Compilation failed - no output" if result.returncode != 0 else "Simulation passed!"
+            "status": "success" if passed == totals[task_id] else "logic_error",
+            "compile_error": "✅ Compiled OK" if passed == totals[task_id] else "✅ Compiled OK, but LOGIC FAILED!",
+            "sim_output": sim_res.stdout,
+            "passed": passed, "total": totals[task_id],
+            "score": round(score, 2)
         }
     except Exception as e:
-        return {"status": "error", "compile_error": str(e)}
+        return {"status": "error", "compile_error": str(e), "score": 0.0}
 
 @app.get("/", response_class=HTMLResponse)
 def read_root():
@@ -130,17 +146,21 @@ def read_root():
             async function runTest(tid) {
                 const out = document.getElementById(`out-${tid}`);
                 out.style.display = "block";
-                out.innerHTML = "<span style='color: var(--acc)'>⚡ Compiling simulator...</span>";
+                out.innerHTML = "<span style='color: var(--acc)'>⚡ Running Hardware Benchmark...</span>";
                 try {
                     const res = await fetch(`/verify/${tid}`);
                     const data = await res.json();
+                    let scoreHtml = `<div style="background: var(--p); display: inline-block; padding: 0.2rem 0.6rem; border-radius: 0.4rem; font-weight: 800; margin-bottom: 0.5rem;">SCORE: ${data.score}</div>`;
+                    
                     if (data.status === "error") {
-                        out.innerHTML = `<span style="color: var(--r); font-weight:800">SIMULATOR CAUGHT BUGS!</span><br class='log-msg'>${data.compile_error}`;
+                        out.innerHTML = `${scoreHtml}<br><span style="color: var(--r); font-weight:800">SYSTEM REJECTED:</span><br class='log-msg'>${data.compile_error}`;
+                    } else if (data.status === "logic_error") {
+                        out.innerHTML = `${scoreHtml}<br><span style="color: var(--r); font-weight:800">LOGIC BUGS DETECTED:</span><br class='log-msg'>${data.compile_error}<br><small>Verified ${data.passed}/${data.total} test vectors.</small>`;
                     } else {
-                        out.innerHTML = `<span style="color: var(--g); font-weight:800">✅ SIMULATION PASSED!</span><br><small>All 10 vectors verified.</small>`;
+                        out.innerHTML = `${scoreHtml}<br><span style="color: var(--g); font-weight:800">✅ BENCHMARK PASSED!</span><br><small>Final reward 0.90 achieved.</small>`;
                     }
                 } catch (e) {
-                    out.innerHTML = "Connection Error";
+                    out.innerHTML = "Backend Timeout - Check Logs";
                 }
             }
         </script>
