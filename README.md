@@ -1,3 +1,12 @@
+---
+title: Rtlrepair Env
+emoji: 🛠️
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+---
+
 # 🛠️ Verilog RTL Simulation Repair Environment
 
 **Automated hardware debugging at scale using AI agents.**
@@ -43,28 +52,6 @@ Each task produces structured JSON logs. The final score is the **best reward** 
 
 ---
 
-## ⚡ Quick Local Setup
-
-### 1. Install Dependencies
-```bash
-pip install -r server/requirements.txt
-```
-
-### 2. Run the Environment (Local Server)
-```bash
-uvicorn server.app:app --host 0.0.0.0 --port 7860
-```
-
-### 3. Run AI Inference (Testing the Benchmark)
-```bash
-export OPENAI_API_KEY="your-key"
-export HF_TOKEN="your-hf-token"
-export HF_SPACE_URL="http://localhost:7860" # Or your HF Space URL
-python inference.py
-```
-
----
-
 ## 🏗️ Benchmark Tasks
 
 This environment provides a tiered difficulty progression based on real-world hardware bugs:
@@ -86,23 +73,6 @@ We use a **Deterministic Grading Engine** based on `iverilog`. Agents are scored
 - **+0.70** | **Simulation:** Fraction of test vectors passing (e.g., +0.35 if 50% pass).
 - **+0.10** | **Surgical Precision:** Bonus for not modifying correct lines in the file.
 - **-0.02** | **Efficiency:** Small penalty per step to encourage the fastest possible fix.
-
----
-
-## 🛠️ Tech Stack & Requirements
-
-- **Language:** Python 3.10+
-- **Simulator:** `iverilog` (v11 or later)
-- **Framework:** FastAPI + Pydantic + [OpenEnv-Core](https://github.com/meta-pytorch/openenv-core)
-- **Deployment:** Docker + Hugging Face Spaces
-
----
-
-## 🚀 Roadmap
-
-- [ ] **Phase 2:** Yosys Synthesis path (repairing for Area/Power/Timing).
-- [ ] **Phase 2:** Multi-module hierarchy debugging.
-- [ ] **Phase 3:** SystemVerilog Assertion (SVA) based repair logic.
 
 ---
 
