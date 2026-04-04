@@ -2,7 +2,7 @@
 # Validated by: openenv validate
 # Required fields for hackathon submission
 
-name: rtlrepair-env
+name: verilog-rtl-simulation-repair
 version: "0.1.0"
 description: >
   An OpenEnv environment for evaluating AI agents on Verilog RTL debugging.

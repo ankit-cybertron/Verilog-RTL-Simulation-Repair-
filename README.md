@@ -1,5 +1,5 @@
 ---
-title: RTLRepair-Env
+title: Verilog-RTL-Simulation-Repair
 emoji: 🛠️
 colorFrom: blue
 colorTo: indigo
@@ -9,7 +9,7 @@ pinned: false
 license: mit
 ---
 
-# RTLRepair-Env
+# Verilog-RTL-Simulation-Repair
 
 **The first Verilog RTL debugging environment in the OpenEnv ecosystem.**
 
