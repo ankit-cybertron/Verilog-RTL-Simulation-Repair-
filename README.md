@@ -1,8 +1,4 @@
----
-title: Verilog-RTL-Simulation-Repair
-sdk: docker
-emoji: 🛠️
----
+
 
 # 🛠️ Verilog RTL Simulation Repair Environment
 
