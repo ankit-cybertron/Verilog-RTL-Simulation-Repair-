@@ -21,18 +21,17 @@ from typing import List
 from openai import OpenAI
 from client import RTLRepairEnv, RTLAction
 
-# ── Environment variables (crash loudly if missing) ──────────────────────────
-API_BASE_URL   = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
-MODEL_NAME     = os.environ.get("MODEL_NAME", "gpt-4o-mini")
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY") 
-HF_TOKEN       = os.environ.get("HF_TOKEN")
-HF_SPACE_URL   = os.environ.get("HF_SPACE_URL", "http://localhost:7860")
+# ── Environment variables (HACKATHON SUBMISSION CHECKLIST COMPLIANCE) ─────────
+API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
+MODEL_NAME   = os.getenv("MODEL_NAME", "gpt-4o-mini")
+HF_TOKEN     = os.getenv("HF_TOKEN")  # MUST NOT HAVE DEFAULT
+HF_SPACE_URL = os.getenv("HF_SPACE_URL") # Required to connect to environment
 
-# Fallback: if OPENAI_API_KEY is missing but HF_TOKEN is present, try using it
-LLM_API_KEY = OPENAI_API_KEY or HF_TOKEN
+#LLM_API_KEY = os.getenv("OPENAI_API_KEY") or HF_TOKEN
+LLM_API_KEY = HF_TOKEN # The checklist implies HF_TOKEN is the primary key
 
-if not LLM_API_KEY:
-    raise ValueError("Missing API Key. Export OPENAI_API_KEY or HF_TOKEN.")
+if not HF_TOKEN:
+    raise ValueError("HF_TOKEN is required for submission.")
 
 # ── Episode config ────────────────────────────────────────────────────────────
 TASKS = ["easy", "medium", "hard"]
