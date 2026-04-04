@@ -20,6 +20,15 @@ app = create_app(
     max_concurrent_envs=1,
 )
 
+@app.get("/")
+def read_root():
+    return {
+        "status": "online",
+        "project": "Verilog-RTL-Simulation-Repair",
+        "description": "OpenEnv environment for AI-assisted Hardware Debugging",
+        "docs": "/docs"
+    }
+
 def main():
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=7860)
