@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+build/
+dist/
+*.egg-info/
+
+# Verilog
+*.v.out
+*.vcd
+sim
+/tmp/*_tb
+
+# Project specific
+uvicorn.log
+deploy.py
+myenv/
+.DS_Store
+.idea/
+.vscode/
+uv.lock
