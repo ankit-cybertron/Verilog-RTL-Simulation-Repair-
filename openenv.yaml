@@ -50,6 +50,6 @@ tasks:
     max_steps: 7
     grader: deterministic
     score_range: [0.0, 1.0]
-author: cybertron-123
-space_url: https://cybertron-123-rtlrepair-env.hf.space
+author: cybertronak
+space_url: https://cybertronak-rtlrepair-env.hf.space
 license: MIT
