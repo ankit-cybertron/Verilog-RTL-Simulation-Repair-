@@ -30,7 +30,7 @@ async def verify_task(task_id: str):
     base_dir = f"server/tasks/{task_id}"
     try:
         # Run iverilog on the broken module to show the errors
-        cmd = ["iverilog", "-o", f"/tmp/{task_id}_sim", f"{base_dir}/broken.v", f"{base_dir}/tb.v"]
+        cmd = ["iverilog", "-o", f"/tmp/{task_id}_sim", f"{base_dir}/broken.v", f"{base_dir}/testbench.v"]
         result = subprocess.run(cmd, capture_output=True, text=True)
         return {
             "status": "compiled" if result.returncode == 0 else "error",
@@ -107,6 +107,23 @@ def read_root():
                 <div class="code-box"><h4>REPAIRED MODULE</h4><code>SUB: res = a <span class="tag-fixed">-</span> b;<br>AND: res = a <span class="tag-fixed">&</span> b;</code></div>
             </div>
             <div id="out-medium" class="live-output"></div>
+        </div>
+
+        <!-- HARD TASK -->
+        <div class="task-panel">
+            <div class="task-header">
+                <div>
+                    <h2 style="margin:0">Level 03: Traffic Light FSM</h2>
+                    <p style="opacity: 0.6; margin: 0.3rem 0;">Finite State Machine Transitions</p>
+                </div>
+                <button class="btn-run" onclick="runTest('hard')">▶ Run Live Debugger</button>
+            </div>
+            
+            <div class="diff-view">
+                <div class="code-box"><h4>BROKEN MODULE</h4><code>GREEN: if (timer > 50) <span class="tag-wrong">state_next = RED;</span></code></div>
+                <div class="code-box"><h4>REPAIRED MODULE</h4><code>GREEN: if (timer > 50) <span class="tag-fixed">state_next = YELLOW;</span></code></div>
+            </div>
+            <div id="out-hard" class="live-output"></div>
         </div>
 
         <script>
