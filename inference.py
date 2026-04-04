@@ -22,12 +22,17 @@ from openai import OpenAI
 from client import RTLRepairEnv, RTLAction
 
 # ── Environment variables (crash loudly if missing) ──────────────────────────
-API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
-MODEL_NAME   = os.environ.get("MODEL_NAME", "gpt-4o-mini")
-HF_TOKEN     = os.environ["HF_TOKEN"]          # Required — crashes if unset
-HF_SPACE_URL = os.environ.get(
-    "HF_SPACE_URL", "http://localhost:7860"
-)
+API_BASE_URL   = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
+MODEL_NAME     = os.environ.get("MODEL_NAME", "gpt-4o-mini")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY") 
+HF_TOKEN       = os.environ.get("HF_TOKEN")
+HF_SPACE_URL   = os.environ.get("HF_SPACE_URL", "http://localhost:7860")
+
+# Fallback: if OPENAI_API_KEY is missing but HF_TOKEN is present, try using it
+LLM_API_KEY = OPENAI_API_KEY or HF_TOKEN
+
+if not LLM_API_KEY:
+    raise ValueError("Missing API Key. Export OPENAI_API_KEY or HF_TOKEN.")
 
 # ── Episode config ────────────────────────────────────────────────────────────
 TASKS = ["easy", "medium", "hard"]
@@ -135,7 +140,7 @@ Return the complete corrected Verilog module (no markdown, no explanation):"""
 # ── Episode runner ────────────────────────────────────────────────────────────
 async def run_task(task_id: str) -> float:
     """Run one full episode for a given task. Returns final score."""
-    client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
+    client = OpenAI(base_url=API_BASE_URL, api_key=LLM_API_KEY)
 
     log_start(task=task_id, env="RTLRepair-Env", model=MODEL_NAME)
 
