@@ -1,5 +1,3 @@
-
-
 # 🛠️ Verilog RTL Simulation Repair Environment
 
 **Automated hardware debugging at scale using AI agents.**
@@ -8,11 +6,44 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Space-Running-blue)](https://huggingface.co/spaces/cybertronak/rtlrepair-env)
 
-RTLRepair-Env is a specialized **AI agent benchmark environment** for hardware engineering. It challenges LLMs to find and fix bugs in Verilog source code, mirroring the high-stakes world of semiconductor design where a single tapeout bug can cost **$5M to $50M**.
+RTLRepair-Env is a specialized **AI agent benchmark environment** for hardware engineering. It challenges LLMs to find and fix bugs in Verilog source code, mirroring the high-stakes world of semiconductor design.
 
 ---
 
-## ⚡ Quick Start
+## 📖 Evaluation Guide for Judges
+
+To evaluate this environment, follow these steps to connect an agent and run the benchmark.
+
+### 🔌 Connectivity
+The environment exposes a standard OpenEnv WebSocket API. You can connect to it using the `OpenEnvClient` or the provided `client.py` in this repository.
+
+- **WebSocket URL:** `wss://cybertronak-rtlrepair-env.hf.space/ws`
+- **HTTP URL:** `https://cybertronak-rtlrepair-env.hf.space`
+
+### 🧪 Running the Benchmark
+You can run the full evaluation suite using the `inference.py` script provided.
+
+1. **Configure Environment:**
+   ```bash
+   export OPENAI_API_KEY="sk-..."    # Your API Key
+   export HF_TOKEN="hf_..."          # Your HF Token
+   export HF_SPACE_URL="https://cybertronak-rtlrepair-env.hf.space"
+   ```
+
+2. **Execute Inference:**
+   ```bash
+   python inference.py
+   ```
+
+### 📊 Expected Output
+Each task produces structured JSON logs. The final score is the **best reward** achieved across all steps in an episode (0.0 to 1.0).
+- **Easy:** Compilation and base signals (Target: >0.60)
+- **Medium:** ALU Logic & Operators (Target: >0.40)
+- **Hard:** FSM State Transitions (Target: >0.20)
+
+---
+
+## ⚡ Quick Local Setup
 
 ### 1. Install Dependencies
 ```bash
