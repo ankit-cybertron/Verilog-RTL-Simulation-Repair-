@@ -1,12 +1,7 @@
 ---
 title: Verilog-RTL-Simulation-Repair
-emoji: 🛠️
-colorFrom: blue
-colorTo: indigo
 sdk: docker
-app_port: 7860
-pinned: false
-license: mit
+emoji: 🛠️
 ---
 
 # 🛠️ Verilog RTL Simulation Repair Environment
