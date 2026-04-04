@@ -1,0 +1,55 @@
+# openenv.yaml — RTLRepair-Env metadata
+# Validated by: openenv validate
+# Required fields for hackathon submission
+
+name: rtlrepair-env
+version: "0.1.0"
+description: >
+  An OpenEnv environment for evaluating AI agents on Verilog RTL debugging.
+  The agent receives a broken hardware module and must repair it to pass
+  iverilog compilation and simulation tests. First RTL debugging benchmark
+  in the OpenEnv ecosystem. Motivated by the $5-50M cost of RTL bugs
+  reaching chip tapeout in semiconductor design.
+tags:
+  - openenv
+  - rtl
+  - verilog
+  - hardware
+  - debugging
+  - eda
+  - semiconductor
+tasks:
+  - id: easy
+    name: "Compile repair"
+    difficulty: easy
+    description: >
+      Fix 3 injected syntax and port errors in a 4-bit counter module
+      so it compiles cleanly with iverilog and passes 5 simulation test vectors.
+      Bugs include: wrong signal name, incorrect sensitivity list, wrong reset signal name.
+    max_steps: 3
+    grader: deterministic
+    score_range: [0.0, 1.0]
+  - id: medium
+    name: "Logic repair"
+    difficulty: medium
+    description: >
+      Fix 2 injected semantic bugs in a 4-bit ALU that compiles but produces
+      wrong simulation output. The agent must pass 10 test vectors covering
+      all arithmetic and logic operations. Bugs are operator-level (wrong op).
+    max_steps: 5
+    grader: deterministic
+    score_range: [0.0, 1.0]
+  - id: hard
+    name: "FSM repair"
+    difficulty: hard
+    description: >
+      Repair a broken 3-state traffic light FSM with 3 injected bugs:
+      wrong state timer threshold, missing state transition, and unregistered output.
+      The agent must pass 20 test vectors covering all state transitions and edge cases.
+      Hard task — frontier models score 0.2-0.4 on baseline.
+    max_steps: 7
+    grader: deterministic
+    score_range: [0.0, 1.0]
+author: cybertron-123
+space_url: https://cybertron-123-rtlrepair-env.hf.space
+license: MIT

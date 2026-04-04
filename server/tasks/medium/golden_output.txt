@@ -1,0 +1,12 @@
+VECTOR 0: PASS expected_result=8 expected_zero=0 actual_result=8 actual_zero=0
+VECTOR 1: PASS expected_result=0 expected_zero=1 actual_result=0 actual_zero=1
+VECTOR 2: PASS expected_result=0 expected_zero=1 actual_result=0 actual_zero=1
+VECTOR 3: PASS expected_result=4 expected_zero=0 actual_result=4 actual_zero=0
+VECTOR 4: PASS expected_result=0 expected_zero=1 actual_result=0 actual_zero=1
+VECTOR 5: PASS expected_result=9 expected_zero=0 actual_result=9 actual_zero=0
+VECTOR 6: PASS expected_result=8 expected_zero=0 actual_result=8 actual_zero=0
+VECTOR 7: PASS expected_result=0 expected_zero=1 actual_result=0 actual_zero=1
+VECTOR 8: PASS expected_result=15 expected_zero=0 actual_result=15 actual_zero=0
+VECTOR 9: PASS expected_result=0 expected_zero=1 actual_result=0 actual_zero=1
+SIMULATION_DONE failed=0
+ 

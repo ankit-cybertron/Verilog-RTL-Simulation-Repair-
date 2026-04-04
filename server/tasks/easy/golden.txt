@@ -1,0 +1,7 @@
+VECTOR 0: PASS expected=0 actual=0
+VECTOR 1: PASS expected=1 actual=1
+VECTOR 2: PASS expected=2 actual=2
+VECTOR 3: PASS expected=3 actual=3
+VECTOR 4: PASS expected=0 actual=0
+SIMULATION_DONE failed=0
+server/tasks/easy/testbench.v:58: $finish called at 46000 (1ps)

@@ -1,0 +1,22 @@
+VECTOR 0: PASS red=1 green=0 yellow=0
+VECTOR 1: PASS red=1 green=0 yellow=0
+VECTOR 2: PASS red=1 green=0 yellow=0
+VECTOR 3: PASS red=0 green=1 yellow=0
+VECTOR 4: PASS red=0 green=1 yellow=0
+VECTOR 5: PASS red=0 green=1 yellow=0
+VECTOR 6: PASS red=0 green=0 yellow=1
+VECTOR 7: PASS red=0 green=0 yellow=1
+VECTOR 8: PASS red=0 green=0 yellow=1
+VECTOR 9: PASS red=1 green=0 yellow=0
+VECTOR 10: PASS red=1 green=0 yellow=0
+VECTOR 11: PASS red=1 green=0 yellow=0
+VECTOR 12: PASS red=0 green=1 yellow=0
+VECTOR 13: PASS red=0 green=1 yellow=0
+VECTOR 14: PASS red=0 green=1 yellow=0
+VECTOR 15: PASS red=0 green=0 yellow=1
+VECTOR 16: PASS red=0 green=0 yellow=1
+VECTOR 17: PASS red=0 green=0 yellow=1
+VECTOR 18: PASS red=1 green=0 yellow=0
+VECTOR 19: PASS red=1 green=0 yellow=0
+SIMULATION_DONE failed=0
+server/tasks/hard/testbench.v:84: $finish called at 216000 (1ps)
