@@ -25,7 +25,8 @@ from client import RTLRepairEnv, RTLAction
 API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
 MODEL_NAME   = os.getenv("MODEL_NAME", "gpt-4o-mini")
 HF_TOKEN     = os.getenv("HF_TOKEN")  # MUST NOT HAVE DEFAULT
-HF_SPACE_URL = os.getenv("HF_SPACE_URL") # Required to connect to environment
+HF_SPACE_URL = os.getenv("HF_SPACE_URL", "https://cybertronak-rtlrepair-env.hf.space")
+LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")  # Optional: for docker-based runs
 
 # Robust API Key discovery
 LLM_API_KEY = os.getenv("OPENAI_API_KEY") or HF_TOKEN
@@ -41,33 +42,24 @@ SUCCESS_SCORE_THRESHOLD = 0.7
 TEMPERATURE = 0.1      # Low temp for reproducibility
 MAX_TOKENS  = 1500
 
-# ── Structured logging (judges parse this programmatically) ──────────────────
+# ── Structured logging — MANDATORY FORMAT (judges parse this programmatically)
+# Format must be EXACTLY:
+#   [START] task=<name> env=<benchmark> model=<model>
+#   [STEP]  step=<n> action=<str> reward=<0.00> done=<true|false> error=<msg|null>
+#   [END]   success=<true|false> steps=<n> rewards=<r1,r2,...>
 def log_start(task: str, env: str, model: str) -> None:
-    print(json.dumps({
-        "type": "START",
-        "task": task,
-        "env": env,
-        "model": model,
-    }), flush=True)
+    print(f"[START] task={task} env={env} model={model}", flush=True)
 
 def log_step(step: int, action: str, reward: float, done: bool, error) -> None:
-    print(json.dumps({
-        "type": "STEP",
-        "step": step,
-        "action": action[:120],   # truncate for readability
-        "reward": round(reward, 4),
-        "done": done,
-        "error": error,
-    }), flush=True)
+    done_str = "true" if done else "false"
+    error_str = error if error else "null"
+    action_safe = action[:80].replace("\n", " ")
+    print(f"[STEP] step={step} action={action_safe} reward={reward:.2f} done={done_str} error={error_str}", flush=True)
 
 def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
-    print(json.dumps({
-        "type": "END",
-        "success": success,
-        "steps": steps,
-        "score": round(score, 4),
-        "rewards": [round(r, 4) for r in rewards],
-    }), flush=True)
+    success_str = "true" if success else "false"
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    print(f"[END] success={success_str} steps={steps} rewards={rewards_str}", flush=True)
 
 # ── System prompt ─────────────────────────────────────────────────────────────
 SYSTEM_PROMPT = """You are an expert RTL hardware engineer specializing in Verilog debugging.

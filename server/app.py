@@ -41,14 +41,20 @@ async def verify_task(task_id: str, mode: str = "broken"):
         
         # STEP 2: Execution
         sim_res = subprocess.run(["vvp", sim_bin], capture_output=True, text=True)
-        passed = totals[task_id]
-        if "failed=" in sim_res.stdout:
+        stdout = sim_res.stdout
+        passed = 0  # Default to 0 — must be earned
+
+        # All testbenches print: "SIMULATION_DONE failed=N"
+        if "SIMULATION_DONE" in stdout:
             try:
-                failed_count = int(sim_res.stdout.split("failed=")[1].split()[0])
+                failed_count = int(stdout.split("failed=")[1].split()[0])
                 passed = totals[task_id] - failed_count
             except: pass
-        
-        score = (passed / totals[task_id]) * 0.7 + 0.2
+        else:
+            # Fallback: count PASS lines
+            passed = stdout.count(": PASS")
+
+        score = round((passed / totals[task_id]) * 0.7 + 0.2, 2)
         
         return {
             "status": "success" if passed == totals[task_id] else "logic_error",
