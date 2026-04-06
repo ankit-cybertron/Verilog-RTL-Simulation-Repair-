@@ -142,6 +142,67 @@ async def grade_task(task_id: str, body: dict = Body(...)):
     return _grade_verilog(task_id, verilog)
 
 
+@app.post("/ai-fix/{task_id}")
+async def ai_fix_task(task_id: str, body: dict = Body(...)):
+    """
+    POST endpoint — sends broken Verilog + error context to LLM for auto-repair.
+    Body: { "verilog_code": "...", "error_log": "...", "task_spec": "..." }
+    Returns: { "fixed_code": "...", "explanation": "..." }
+    """
+    from openai import OpenAI
+
+    api_key = os.getenv("OPENAI_API_KEY") or os.getenv("HF_TOKEN")
+    if not api_key:
+        return {
+            "status": "error",
+            "fixed_code": "",
+            "explanation": "⚠️ No API key found. Set OPENAI_API_KEY or HF_TOKEN in Space secrets to enable AI auto-fix."
+        }
+
+    api_base = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
+    model    = os.getenv("MODEL_NAME", "gpt-4o-mini")
+
+    broken_code = body.get("verilog_code", "")
+    error_log   = body.get("error_log", "None")
+    task_spec   = body.get("task_spec", "Fix the Verilog module so it compiles and passes all simulation tests.")
+
+    prompt = f"""You are an expert RTL hardware engineer. Fix the broken Verilog module below.
+
+TASK SPECIFICATION:
+{task_spec}
+
+BROKEN VERILOG:
+{broken_code}
+
+SIMULATION/COMPILE ERRORS:
+{error_log}
+
+INSTRUCTIONS:
+- Return ONLY the complete corrected Verilog module
+- Do NOT add markdown fences (no ```verilog)
+- Do NOT add any explanation outside the code
+- Keep all module names, port names, and parameters unchanged
+- Fix ONLY what is broken — preserve correct logic"""
+
+    try:
+        client = OpenAI(base_url=api_base, api_key=api_key)
+        completion = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1,
+            max_tokens=1500,
+        )
+        fixed = (completion.choices[0].message.content or "").strip()
+        # Strip markdown fences if model added them anyway
+        import re as _re
+        fixed = _re.sub(r"```(?:verilog|systemverilog|sv)?\s*", "", fixed)
+        fixed = _re.sub(r"```\s*$", "", fixed, flags=_re.MULTILINE).strip()
+
+        return {"status": "ok", "fixed_code": fixed, "explanation": f"Fixed by {model}"}
+    except Exception as e:
+        return {"status": "error", "fixed_code": broken_code, "explanation": f"AI call failed: {str(e)}"}
+
+
 @app.get("/verify/{task_id}")
 async def verify_task(task_id: str, mode: str = "broken"):
     """GET endpoint — grades the preset broken.v or correct.v file."""
@@ -244,6 +305,8 @@ def read_root():
         .score-pass {{ background:var(--g); color:#000; }}
         .score-fail {{ background:var(--r); color:#fff; }}
         .score-warn {{ background:var(--y); color:#000; }}
+        .btn-ai {{ background:linear-gradient(135deg,#7c3aed,#6366f1); color:#fff; }}
+        .btn-ai:disabled {{ opacity:.5; cursor:not-allowed; }}
 
         @media(max-width:700px) {{
             .editor-grid {{ grid-template-columns:1fr; }}
@@ -268,7 +331,8 @@ def read_root():
             <div class="btn-group">
                 <button class="btn btn-broken" onclick="loadPreset('easy','broken')">Load Broken</button>
                 <button class="btn btn-fixed"  onclick="loadPreset('easy','fixed')">Load Solution</button>
-                <button class="btn btn-run"    onclick="runGrade('easy')">▶ Run &amp; Grade</button>
+                <button class="btn btn-run"    onclick="runGrade('easy')">&#9654; Run &amp; Grade</button>
+                <button class="btn btn-ai" id="ai-btn-easy" onclick="autoFix('easy')">&#129302; Auto-Fix</button>
             </div>
         </div>
         <div class="editor-grid">
@@ -290,7 +354,8 @@ def read_root():
                 <div class="log-body" id="log-body-easy"></div>
             </div>
             <div class="fix-tip" id="fix-tip-easy">
-                💡 <b>Errors detected!</b> The editor above is fully editable — fix the Verilog and click <b>▶ Run &amp; Grade</b> again.
+                &#128161; <b>Errors detected!</b> Edit the code above and re-run, or click
+                <b>&#129302; Auto-Fix</b> to let the AI repair it automatically.
             </div>
         </div>
     </div>
@@ -305,7 +370,8 @@ def read_root():
             <div class="btn-group">
                 <button class="btn btn-broken" onclick="loadPreset('medium','broken')">Load Broken</button>
                 <button class="btn btn-fixed"  onclick="loadPreset('medium','fixed')">Load Solution</button>
-                <button class="btn btn-run"    onclick="runGrade('medium')">▶ Run &amp; Grade</button>
+                <button class="btn btn-run"    onclick="runGrade('medium')">&#9654; Run &amp; Grade</button>
+                <button class="btn btn-ai" id="ai-btn-medium" onclick="autoFix('medium')">&#129302; Auto-Fix</button>
             </div>
         </div>
         <div class="editor-grid">
@@ -327,7 +393,8 @@ def read_root():
                 <div class="log-body" id="log-body-medium"></div>
             </div>
             <div class="fix-tip" id="fix-tip-medium">
-                💡 <b>Errors detected!</b> The editor above is fully editable — fix the Verilog and click <b>▶ Run &amp; Grade</b> again.
+                &#128161; <b>Errors detected!</b> Edit the code above and re-run, or click
+                <b>&#129302; Auto-Fix</b> to let the AI repair it automatically.
             </div>
         </div>
     </div>
@@ -342,7 +409,8 @@ def read_root():
             <div class="btn-group">
                 <button class="btn btn-broken" onclick="loadPreset('hard','broken')">Load Broken</button>
                 <button class="btn btn-fixed"  onclick="loadPreset('hard','fixed')">Load Solution</button>
-                <button class="btn btn-run"    onclick="runGrade('hard')">▶ Run &amp; Grade</button>
+                <button class="btn btn-run"    onclick="runGrade('hard')">&#9654; Run &amp; Grade</button>
+                <button class="btn btn-ai" id="ai-btn-hard" onclick="autoFix('hard')">&#129302; Auto-Fix</button>
             </div>
         </div>
         <div class="editor-grid">
@@ -364,7 +432,8 @@ def read_root():
                 <div class="log-body" id="log-body-hard"></div>
             </div>
             <div class="fix-tip" id="fix-tip-hard">
-                💡 <b>Errors detected!</b> The editor above is fully editable — fix the Verilog and click <b>▶ Run &amp; Grade</b> again.
+                &#128161; <b>Errors detected!</b> Edit the code above and re-run, or click
+                <b>&#129302; Auto-Fix</b> to let the AI repair it automatically.
             </div>
         </div>
     </div>
@@ -375,6 +444,14 @@ const PRESETS = {{
     medium: {{ broken: {repr(medium_broken)}, fixed: {repr(medium_correct)} }},
     hard:   {{ broken: {repr(hard_broken)},   fixed: {repr(hard_correct)} }}
 }};
+
+const TASK_SPECS = {{
+    easy:   "4-bit synchronous up-counter. Fix port direction (output reg), clock edge (posedge), and undeclared signal.",
+    medium: "4-bit ALU with ops ADD/SUB/AND/OR. Fix wrong operators in SUB and AND cases.",
+    hard:   "3-state traffic light FSM: RED->GREEN->YELLOW->RED. Fix state transitions and timer thresholds."
+}};
+
+const lastLog = {{}};
 
 function loadPreset(tid, mode) {{
     document.getElementById(`code-${{tid}}`).value = PRESETS[tid][mode];
@@ -388,7 +465,7 @@ async function runGrade(tid) {{
 
     logPanel.style.display = "block";
     fixTip.style.display   = "none";
-    logBody.innerHTML = "<span style='color:var(--acc)'>⚡ Compiling and simulating...</span>";
+    logBody.innerHTML = "<span style='color:var(--acc)'>&#9889; Compiling and simulating...</span>";
 
     try {{
         const res = await fetch(`/grade/${{tid}}`, {{
@@ -407,18 +484,60 @@ async function runGrade(tid) {{
         const scoreLine = `<div class="score-badge ${{scoreClass}}">SCORE: ${{score.toFixed(2)}} &nbsp;|&nbsp; ${{passed}}/${{total}} vectors passed</div>`;
         const logText   = (data.logs || "No output").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
-        logBody.innerHTML = scoreLine + `\n\n` + logText;
+        lastLog[tid] = data.logs || "";
+        logBody.innerHTML = scoreLine + "\n\n" + logText;
 
-        // Show fix tip when there are errors
         if (isError) fixTip.style.display = "block";
         else fixTip.style.display = "none";
 
-        // Auto-scroll log to top
         logPanel.querySelector(".log-scroll").scrollTop = 0;
 
     }} catch(e) {{
-        logBody.innerHTML = `<span style='color:var(--r)'>❌ Request failed: ${{e.message}}</span>`;
+        logBody.innerHTML = `<span style='color:var(--r)'>&#10060; Request failed: ${{e.message}}</span>`;
         fixTip.style.display = "block";
+    }}
+}}
+
+async function autoFix(tid) {{
+    const code    = document.getElementById(`code-${{tid}}`).value;
+    const logBody = document.getElementById(`log-body-${{tid}}`);
+    const logPanel= document.getElementById(`log-${{tid}}`);
+    const fixTip  = document.getElementById(`fix-tip-${{tid}}`);
+    const btn     = document.getElementById(`ai-btn-${{tid}}`);
+
+    logPanel.style.display = "block";
+    fixTip.style.display   = "none";
+    btn.disabled = true;
+    btn.textContent = "&#129302; Thinking...";
+    logBody.innerHTML = "<span style='color:#a78bfa'>&#129302; Sending to AI for analysis and repair...</span>";
+
+    try {{
+        const res = await fetch(`/ai-fix/${{tid}}`, {{
+            method: "POST",
+            headers: {{ "Content-Type": "application/json" }},
+            body: JSON.stringify({{
+                verilog_code: code,
+                error_log: lastLog[tid] || "No previous run. Inspect the code for common Verilog bugs.",
+                task_spec: TASK_SPECS[tid]
+            }})
+        }});
+        const data = await res.json();
+
+        if (data.status === "ok" && data.fixed_code) {{
+            document.getElementById(`code-${{tid}}`).value = data.fixed_code;
+            logBody.innerHTML = `<span style='color:#a78bfa'>&#129302; ${{data.explanation}}</span>\n<span style='color:var(--g)'>&#10003; Code updated — running grader now...</span>`;
+            // Auto-run grader with fixed code
+            setTimeout(() => runGrade(tid), 600);
+        }} else {{
+            logBody.innerHTML = `<span style='color:var(--r)'>&#10060; AI fix failed: ${{data.explanation}}</span>`;
+            fixTip.style.display = "block";
+        }}
+    }} catch(e) {{
+        logBody.innerHTML = `<span style='color:var(--r)'>&#10060; AI request failed: ${{e.message}}</span>`;
+        fixTip.style.display = "block";
+    }} finally {{
+        btn.disabled = false;
+        btn.textContent = "&#129302; Auto-Fix";
     }}
 }}
 </script>
