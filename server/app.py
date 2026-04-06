@@ -89,6 +89,9 @@ def read_root():
         <div class="hero">
             <h1>🛠️ RTLRepair Platform</h1>
             <p style="opacity: 0.6;">Interactive Hardware Bug Diagnosis & Automated Repair Benchmark</p>
+            <div style="margin-top: 1rem; font-size: 0.8rem; background: rgba(99, 102, 241, 0.1); display: inline-block; padding: 0.4rem 1rem; border-radius: 9999px; border: 1px solid var(--p);">
+                📡 <b>API LIVE:</b> Environment is fully dynamic and accepts all Verilog submissions.
+            </div>
         </div>
 
         <!-- EASY TASK -->
