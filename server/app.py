@@ -16,7 +16,7 @@ app = create_app(
     RTLRepairEnvironment,
     RTLAction,
     RTLObservation,
-    env_name="rtlrepair_env",
+    env_name="verilog-rtl-simulation-repair",
     max_concurrent_envs=1,
 )
 
