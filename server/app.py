@@ -219,21 +219,43 @@ async def verify_task(task_id: str, mode: str = "broken"):
 
 
 def _load_task_code(task_id: str, filename: str) -> str:
+    """Load raw file content for textarea (HTML-escaped)."""
+    import html as _html
     try:
         with open(f"server/tasks/{task_id}/{filename}") as f:
-            return f.read().replace("`", "&#96;").replace("</", "<\\/")
+            return _html.escape(f.read())
     except:
         return f"// {filename} not found"
 
 
+def _load_task_js(task_id: str, filename: str) -> str:
+    """Load file content as a JSON-safe JS string literal for PRESETS."""
+    import json as _json
+    try:
+        with open(f"server/tasks/{task_id}/{filename}") as f:
+            return _json.dumps(f.read())  # produces "..."-quoted, \n-escaped JS string
+    except:
+        return '"// file not found"'
+
+
 @app.get("/", response_class=HTMLResponse)
 def read_root():
-    easy_broken   = _load_task_code("easy",   "broken.v")
-    medium_broken = _load_task_code("medium", "broken.v")
-    hard_broken   = _load_task_code("hard",   "broken.v")
-    easy_correct  = _load_task_code("easy",   "correct.v")
-    medium_correct= _load_task_code("medium", "correct.v")
-    hard_correct  = _load_task_code("hard",   "correct.v")
+    # HTML-escaped for <textarea> content
+    easy_broken    = _load_task_code("easy",   "broken.v")
+    medium_broken  = _load_task_code("medium", "broken.v")
+    hard_broken    = _load_task_code("hard",   "broken.v")
+    easy_correct   = _load_task_code("easy",   "correct.v")
+    medium_correct = _load_task_code("medium", "correct.v")
+    hard_correct   = _load_task_code("hard",   "correct.v")
+
+    # JSON-encoded for JavaScript PRESETS object
+    easy_broken_js    = _load_task_js("easy",   "broken.v")
+    medium_broken_js  = _load_task_js("medium", "broken.v")
+    hard_broken_js    = _load_task_js("hard",   "broken.v")
+    easy_correct_js   = _load_task_js("easy",   "correct.v")
+    medium_correct_js = _load_task_js("medium", "correct.v")
+    hard_correct_js   = _load_task_js("hard",   "correct.v")
+
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -440,9 +462,9 @@ def read_root():
 
 <script>
 const PRESETS = {{
-    easy:   {{ broken: {repr(easy_broken)},   fixed: {repr(easy_correct)} }},
-    medium: {{ broken: {repr(medium_broken)}, fixed: {repr(medium_correct)} }},
-    hard:   {{ broken: {repr(hard_broken)},   fixed: {repr(hard_correct)} }}
+    easy:   {{ broken: {easy_broken_js},   fixed: {easy_correct_js} }},
+    medium: {{ broken: {medium_broken_js}, fixed: {medium_correct_js} }},
+    hard:   {{ broken: {hard_broken_js},   fixed: {hard_correct_js} }}
 }};
 
 const TASK_SPECS = {{
