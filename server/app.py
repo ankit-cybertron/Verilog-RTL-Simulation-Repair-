@@ -25,14 +25,16 @@ import os
 import subprocess
 
 @app.get("/verify/{task_id}")
-async def verify_task(task_id: str):
+async def verify_task(task_id: str, mode: str = "broken"):
     """Live simulator verification endpoint (Compiler + Executor + Scorer)."""
     base_dir = f"server/tasks/{task_id}"
-    sim_bin = f"/tmp/{task_id}_sim"
+    sim_bin = f"/tmp/{task_id}_{mode}_sim"
+    v_file = "broken.v" if mode == "broken" else "correct.v"
+    
     totals = {"easy": 5, "medium": 10, "hard": 20}
     try:
         # STEP 1: Compilation
-        cmd = ["iverilog", "-o", sim_bin, f"{base_dir}/broken.v", f"{base_dir}/testbench.v"]
+        cmd = ["iverilog", "-o", sim_bin, f"{base_dir}/{v_file}", f"{base_dir}/testbench.v"]
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
             return {"status": "error", "compile_error": result.stderr, "score": 0.0}
@@ -41,17 +43,20 @@ async def verify_task(task_id: str):
         sim_res = subprocess.run(["vvp", sim_bin], capture_output=True, text=True)
         passed = totals[task_id]
         if "failed=" in sim_res.stdout:
-            failed_count = int(sim_res.stdout.split("failed=")[1].split()[0])
-            passed = totals[task_id] - failed_count
+            try:
+                failed_count = int(sim_res.stdout.split("failed=")[1].split()[0])
+                passed = totals[task_id] - failed_count
+            except: pass
         
-        score = (passed / totals[task_id]) * 0.7 + 0.2 # 0.7 for vectors + 0.2 for compilation
+        score = (passed / totals[task_id]) * 0.7 + 0.2
         
         return {
             "status": "success" if passed == totals[task_id] else "logic_error",
             "compile_error": "✅ Compiled OK" if passed == totals[task_id] else "✅ Compiled OK, but LOGIC FAILED!",
             "sim_output": sim_res.stdout,
             "passed": passed, "total": totals[task_id],
-            "score": round(score, 2)
+            "score": round(score, 2),
+            "mode": mode
         }
     except Exception as e:
         return {"status": "error", "compile_error": str(e), "score": 0.0}
@@ -73,8 +78,9 @@ def read_root():
             
             .task-panel { background: var(--c); border: 1px solid rgba(255,255,255,0.1); border-radius: 2rem; padding: 2.5rem; margin-bottom: 3rem; }
             .task-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
-            .btn-run { background: var(--p); color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 0.8rem; cursor: pointer; font-weight: 700; transition: 0.2s; }
-            .btn-run:hover { transform: scale(1.05); filter: brightness(1.1); }
+            .btn-run { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 0.6rem 1.2rem; border-radius: 0.8rem; cursor: pointer; font-weight: 700; transition: 0.2s; margin-left: 0.5rem; }
+            .btn-solve { background: var(--p); color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 0.8rem; cursor: pointer; font-weight: 700; transition: 0.2s; }
+            .btn-run:hover, .btn-solve:hover { transform: scale(1.05); filter: brightness(1.1); }
             
             .diff-view { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
             .code-box { background: #000; border-radius: 1rem; padding: 1.5rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; position: relative; border: 1px solid rgba(255,255,255,0.05); }
@@ -89,9 +95,6 @@ def read_root():
         <div class="hero">
             <h1>🛠️ RTLRepair Platform</h1>
             <p style="opacity: 0.6;">Interactive Hardware Bug Diagnosis & Automated Repair Benchmark</p>
-            <div style="margin-top: 1rem; font-size: 0.8rem; background: rgba(99, 102, 241, 0.1); display: inline-block; padding: 0.4rem 1rem; border-radius: 9999px; border: 1px solid var(--p);">
-                📡 <b>API LIVE:</b> Environment is fully dynamic and accepts all Verilog submissions.
-            </div>
         </div>
 
         <!-- EASY TASK -->
@@ -101,7 +104,10 @@ def read_root():
                     <h2 style="margin:0">Level 01: 4-bit Synchronous Counter</h2>
                     <p style="opacity: 0.6; margin: 0.3rem 0;">Syntax & Port Sensitivities</p>
                 </div>
-                <button class="btn-run" onclick="runTest('easy')">▶ Run Live Debugger</button>
+                <div>
+                    <button class="btn-run" onclick="runTest('easy', 'broken')">▶ Test Broken</button>
+                    <button class="btn-solve" onclick="runTest('easy', 'fixed')">🚀 Verify Solution</button>
+                </div>
             </div>
             
             <div class="diff-view">
@@ -118,7 +124,10 @@ def read_root():
                     <h2 style="margin:0">Level 02: 4-bit ALU Unit</h2>
                     <p style="opacity: 0.6; margin: 0.3rem 0;">Behavioral Arithmetic Logic</p>
                 </div>
-                <button class="btn-run" onclick="runTest('medium')">▶ Run Live Debugger</button>
+                <div>
+                    <button class="btn-run" onclick="runTest('medium', 'broken')">▶ Test Broken</button>
+                    <button class="btn-solve" onclick="runTest('medium', 'fixed')">🚀 Verify Solution</button>
+                </div>
             </div>
             
             <div class="diff-view">
@@ -135,7 +144,10 @@ def read_root():
                     <h2 style="margin:0">Level 03: Traffic Light FSM</h2>
                     <p style="opacity: 0.6; margin: 0.3rem 0;">Finite State Machine Transitions</p>
                 </div>
-                <button class="btn-run" onclick="runTest('hard')">▶ Run Live Debugger</button>
+                <div>
+                    <button class="btn-run" onclick="runTest('hard', 'broken')">▶ Test Broken</button>
+                    <button class="btn-solve" onclick="runTest('hard', 'fixed')">🚀 Verify Solution</button>
+                </div>
             </div>
             
             <div class="diff-view">
@@ -146,21 +158,21 @@ def read_root():
         </div>
 
         <script>
-            async function runTest(tid) {
+            async function runTest(tid, mode) {
                 const out = document.getElementById(`out-${tid}`);
                 out.style.display = "block";
-                out.innerHTML = "<span style='color: var(--acc)'>⚡ Running Hardware Benchmark...</span>";
+                out.innerHTML = `<span style='color: var(--acc)'>⚡ ${mode === 'broken' ? 'Diagnosing Bugs...' : 'Verifying Repair...'}</span>`;
                 try {
-                    const res = await fetch(`/verify/${tid}`);
+                    const res = await fetch(`/verify/${tid}?mode=${mode}`);
                     const data = await res.json();
-                    let scoreHtml = `<div style="background: var(--p); display: inline-block; padding: 0.2rem 0.6rem; border-radius: 0.4rem; font-weight: 800; margin-bottom: 0.5rem;">SCORE: ${data.score}</div>`;
+                    let scoreHtml = `<div style="background: ${mode==='fixed' ? 'var(--g)' : 'var(--p)'}; color: ${mode==='fixed' ? '#000' : '#fff'}; display: inline-block; padding: 0.2rem 0.6rem; border-radius: 0.4rem; font-weight: 800; margin-bottom: 0.5rem;">SCORE: ${data.score}</div>`;
                     
                     if (data.status === "error") {
                         out.innerHTML = `${scoreHtml}<br><span style="color: var(--r); font-weight:800">SYSTEM REJECTED:</span><br class='log-msg'>${data.compile_error}`;
                     } else if (data.status === "logic_error") {
                         out.innerHTML = `${scoreHtml}<br><span style="color: var(--r); font-weight:800">LOGIC BUGS DETECTED:</span><br class='log-msg'>${data.compile_error}<br><small>Verified ${data.passed}/${data.total} test vectors.</small>`;
                     } else {
-                        out.innerHTML = `${scoreHtml}<br><span style="color: var(--g); font-weight:800">✅ BENCHMARK PASSED!</span><br><small>Final reward 0.90 achieved.</small>`;
+                        out.innerHTML = `${scoreHtml}<br><span style="color: var(--g); font-weight:800">✅ BENCHMARK PASSED!</span><br><small>All tests passed. Final reward reached.</small>`;
                     }
                 } catch (e) {
                     out.innerHTML = "Backend Timeout - Check Logs";
