@@ -226,10 +226,18 @@ def read_root():
 
         .log-panel {{ background:#05070a; border:1px solid #1e2537; border-radius:1rem;
                       padding:1.2rem; margin-top:1rem; display:none; }}
-        .log-header {{ font-size:.7rem; font-weight:700; opacity:.4;
+        .log-header {{ display:flex; justify-content:space-between; align-items:center;
+                       font-size:.7rem; font-weight:700; opacity:.4;
                        text-transform:uppercase; margin-bottom:.8rem; }}
+        .log-scroll {{ max-height:320px; overflow-y:auto; padding-right:.4rem; }}
+        .log-scroll::-webkit-scrollbar {{ width:4px; }}
+        .log-scroll::-webkit-scrollbar-track {{ background:transparent; }}
+        .log-scroll::-webkit-scrollbar-thumb {{ background:var(--p); border-radius:2px; }}
         .log-body {{ font-family:'JetBrains Mono',monospace; font-size:.78rem;
                      white-space:pre-wrap; line-height:1.7; }}
+        .fix-tip {{ margin-top:.8rem; padding:.6rem 1rem; background:rgba(251,191,36,.1);
+                    border:1px solid var(--y); border-radius:.6rem; font-size:.78rem;
+                    color:var(--y); display:none; }}
         .score-badge {{ display:inline-block; font-family:'JetBrains Mono'; font-weight:700;
                         padding:.25rem .75rem; border-radius:.4rem; font-size:.9rem;
                         margin-bottom:.5rem; }}
@@ -274,8 +282,16 @@ def read_root():
             </div>
         </div>
         <div class="log-panel" id="log-easy">
-            <div class="log-header">Simulation Log</div>
-            <div class="log-body" id="log-body-easy"></div>
+            <div class="log-header">
+                <span>Simulation Log</span>
+                <span style="opacity:.5;font-weight:400">Scroll to see all output ↕</span>
+            </div>
+            <div class="log-scroll">
+                <div class="log-body" id="log-body-easy"></div>
+            </div>
+            <div class="fix-tip" id="fix-tip-easy">
+                💡 <b>Errors detected!</b> The editor above is fully editable — fix the Verilog and click <b>▶ Run &amp; Grade</b> again.
+            </div>
         </div>
     </div>
 
@@ -303,8 +319,16 @@ def read_root():
             </div>
         </div>
         <div class="log-panel" id="log-medium">
-            <div class="log-header">Simulation Log</div>
-            <div class="log-body" id="log-body-medium"></div>
+            <div class="log-header">
+                <span>Simulation Log</span>
+                <span style="opacity:.5;font-weight:400">Scroll to see all output ↕</span>
+            </div>
+            <div class="log-scroll">
+                <div class="log-body" id="log-body-medium"></div>
+            </div>
+            <div class="fix-tip" id="fix-tip-medium">
+                💡 <b>Errors detected!</b> The editor above is fully editable — fix the Verilog and click <b>▶ Run &amp; Grade</b> again.
+            </div>
         </div>
     </div>
 
@@ -332,8 +356,16 @@ def read_root():
             </div>
         </div>
         <div class="log-panel" id="log-hard">
-            <div class="log-header">Simulation Log</div>
-            <div class="log-body" id="log-body-hard"></div>
+            <div class="log-header">
+                <span>Simulation Log</span>
+                <span style="opacity:.5;font-weight:400">Scroll to see all output ↕</span>
+            </div>
+            <div class="log-scroll">
+                <div class="log-body" id="log-body-hard"></div>
+            </div>
+            <div class="fix-tip" id="fix-tip-hard">
+                💡 <b>Errors detected!</b> The editor above is fully editable — fix the Verilog and click <b>▶ Run &amp; Grade</b> again.
+            </div>
         </div>
     </div>
 
@@ -352,8 +384,10 @@ async function runGrade(tid) {{
     const code = document.getElementById(`code-${{tid}}`).value;
     const logPanel = document.getElementById(`log-${{tid}}`);
     const logBody  = document.getElementById(`log-body-${{tid}}`);
+    const fixTip   = document.getElementById(`fix-tip-${{tid}}`);
 
     logPanel.style.display = "block";
+    fixTip.style.display   = "none";
     logBody.innerHTML = "<span style='color:var(--acc)'>⚡ Compiling and simulating...</span>";
 
     try {{
@@ -364,17 +398,27 @@ async function runGrade(tid) {{
         }});
         const data = await res.json();
 
-        const score = data.score ?? 0;
-        const total = data.total ?? "?";
-        const passed = data.passed ?? 0;
-        const scoreClass = score >= 0.85 ? "score-pass" : score >= 0.4 ? "score-warn" : "score-fail";
+        const score   = data.score ?? 0;
+        const total   = data.total ?? "?";
+        const passed  = data.passed ?? 0;
+        const isError = data.status === "compile_error" || data.status === "logic_error";
+        const scoreClass = score >= 0.85 ? "score-pass" : score >= 0.35 ? "score-warn" : "score-fail";
 
-        const scoreLine = `<div class="score-badge ${{scoreClass}}">SCORE: ${{score.toFixed(2)}} (${{passed}}/${{total}} vectors)</div>`;
+        const scoreLine = `<div class="score-badge ${{scoreClass}}">SCORE: ${{score.toFixed(2)}} &nbsp;|&nbsp; ${{passed}}/${{total}} vectors passed</div>`;
         const logText   = (data.logs || "No output").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
-        logBody.innerHTML = scoreLine + `<br><br>` + logText;
+        logBody.innerHTML = scoreLine + `\n\n` + logText;
+
+        // Show fix tip when there are errors
+        if (isError) fixTip.style.display = "block";
+        else fixTip.style.display = "none";
+
+        // Auto-scroll log to top
+        logPanel.querySelector(".log-scroll").scrollTop = 0;
+
     }} catch(e) {{
         logBody.innerHTML = `<span style='color:var(--r)'>❌ Request failed: ${{e.message}}</span>`;
+        fixTip.style.display = "block";
     }}
 }}
 </script>
