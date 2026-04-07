@@ -53,9 +53,10 @@ def _grade_verilog(task_id: str, verilog_code: str, attempts: int = 1) -> dict:
                 logs.append(f"  [ERROR] {line}")
             error_count = len([l for l in err.splitlines() if "error" in l.lower()])
             # Partial marks for almost compiling
-            score = max(0.0, 0.05 * (3 - error_count))
+            score = max(0.01, 0.05 * (3 - error_count))
+            score = round(max(0.01, min(0.99, score)), 2)
             logs.append(f"\n[WARN] Compilation FAILED - {error_count} error(s)")
-            logs.append(f"[INFO] FINAL SCORE: {score:.2f}  (0.0 base - compile failed)")
+            logs.append(f"[INFO] FINAL SCORE: {score:.2f}  (0.01 base - compile failed)")
             return {
                 "status": "compile_error",
                 "compile_error": err,
@@ -136,13 +137,14 @@ def _grade_verilog(task_id: str, verilog_code: str, attempts: int = 1) -> dict:
             score_components.append(f"  [-] Repeated fail pen.: -{p:.2f}  (Attempt #{attempts})")
             
         score -= penalty
-        score = round(max(0.0, min(1.0, score)), 2)
+        # OpenEnv strict requirement: Score must be in range (0.0, 1.0) exclusive
+        score = round(max(0.01, min(0.99, score)), 2)
 
         logs.append(f"\n[STEP 4]: Score Breakdown:")
         for comp in score_components:
             logs.append(comp)
         logs.append(f"  ─────────────────────────────")
-        logs.append(f"  FINAL SCORE:            {score:.2f} / 1.00 max")
+        logs.append(f"  FINAL SCORE:            {score:.2f} / 0.99 max")
 
         status = "success" if passed == total else "logic_error"
         return {
