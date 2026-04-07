@@ -377,9 +377,9 @@ def read_root():
 </head>
 <body>
     <div class="hero">
-        <h1>🛠️ RTLRepair Platform</h1>
+        <h1>RTLRepair Platform</h1>
         <p>Interactive Hardware Bug Diagnosis & Live Simulation Benchmark</p>
-        <div class="badge">📡 <b>LIVE:</b> Edit any module and click Run to grade in real-time</div>
+        <div class="badge"><b>[LIVE]</b> Edit any module and click Run to grade in real-time</div>
     </div>
 
     <!-- ─── EASY ─── -->
