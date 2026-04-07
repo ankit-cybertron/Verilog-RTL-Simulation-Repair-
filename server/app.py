@@ -52,9 +52,10 @@ def _grade_verilog(task_id: str, verilog_code: str, attempts: int = 1) -> dict:
             for line in err.splitlines():
                 logs.append(f"  [ERROR] {line}")
             error_count = len([l for l in err.splitlines() if "error" in l.lower()])
+            # Partial marks for almost compiling
             score = max(0.0, 0.05 * (3 - error_count))
             logs.append(f"\n[WARN] Compilation FAILED - {error_count} error(s)")
-            logs.append(f"[INFO] SCORE: {score:.2f}  (0.0 base - compile failed)")
+            logs.append(f"[INFO] FINAL SCORE: {score:.2f}  (0.0 base - compile failed)")
             return {
                 "status": "compile_error",
                 "compile_error": err,
@@ -66,7 +67,14 @@ def _grade_verilog(task_id: str, verilog_code: str, attempts: int = 1) -> dict:
                 "vector_results": []
             }
 
-        logs.append("  [PASS] Compilation SUCCESS")
+        compile_score = 0.20
+        # Check against warnings in compilation (iverilog outputs warnings to stderr even with code=0)
+        has_warnings = len(compile_res.stderr.strip()) > 0
+        if has_warnings:
+            compile_score = 0.10  # Reduced compilation bonus
+            logs.append("  [WARN] Compiled WITH warnings (-0.10 bonus penalty)")
+        else:
+            logs.append("  [PASS] Compilation SUCCESS (Warning-free)")
 
         # ── Step 2: Simulation ─────────────────────────────────────────────────
         logs.append("\n[STEP 2]: Running simulation with vvp...")
@@ -105,25 +113,36 @@ def _grade_verilog(task_id: str, verilog_code: str, attempts: int = 1) -> dict:
             passed = stdout.count(": PASS")
 
         # ── Step 4: Score Calculation ──────────────────────────────────────────
-        compile_bonus = 0.20
-        vector_score  = (passed / total) * 0.70
+        score_components = []
+        score = compile_score
+        score_components.append(f"  [+] Compilation eval:   +{compile_score:.2f}  (Max +0.20)")
+
+        vector_score = round((passed / total) * 0.80, 2)
+        score += vector_score
+        score_components.append(f"  [+] Vector checks:      +{vector_score:.2f}  ({passed}/{total} passed)")
         
-        # Dynamic penalty: If you keep failing, deduct score 
-        # (Only penalize if it's not perfect to prevent losing points on correct solutions requested explicitly)
+        # Dynamic penalties
         penalty = 0.0
+        
+        # 1. Zero-logic penalty: Compiled, but completely failed runtime logic
+        if passed == 0 and total > 0:
+            penalty += 0.10
+            score_components.append(f"  [-] Zero vectors pass:  -0.10")
+
+        # 2. Retry-spam penalty: Repeated attempts failing
         if passed < total and attempts > 1:
-            penalty = round(min(0.20, (attempts - 1) * 0.05), 2)
+            p = round(min(0.20, (attempts - 1) * 0.05), 2)
+            penalty += p
+            score_components.append(f"  [-] Repeated fail pen.: -{p:.2f}  (Attempt #{attempts})")
             
-        score = round(compile_bonus + vector_score - penalty, 2)
-        score = max(0.0, score)
+        score -= penalty
+        score = round(max(0.0, min(1.0, score)), 2)
 
         logs.append(f"\n[STEP 4]: Score Breakdown:")
-        logs.append(f"  [+] Compilation bonus:  +0.20")
-        logs.append(f"  [+] Vector score:       +{vector_score:.2f}  ({passed}/{total} × 0.70)")
-        if penalty > 0:
-            logs.append(f"  [-] Repeated fail pen.: -{penalty:.2f}  (Attempt #{attempts})")
+        for comp in score_components:
+            logs.append(comp)
         logs.append(f"  ─────────────────────────────")
-        logs.append(f"  FINAL SCORE:        {score:.2f} / 0.90 max")
+        logs.append(f"  FINAL SCORE:            {score:.2f} / 1.00 max")
 
         status = "success" if passed == total else "logic_error"
         return {
