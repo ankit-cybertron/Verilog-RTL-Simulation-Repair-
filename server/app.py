@@ -159,8 +159,8 @@ async def ai_fix_task(task_id: str, body: dict = Body(...)):
             "explanation": "⚠️ No API key found. Set OPENAI_API_KEY or HF_TOKEN in Space secrets to enable AI auto-fix."
         }
 
-    api_base = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
-    model    = os.getenv("MODEL_NAME", "gpt-4o-mini")
+    api_base = os.getenv("API_BASE_URL", "https://api.groq.com/openai/v1")
+    model    = os.getenv("MODEL_NAME", "llama3-70b-8192")
 
     broken_code = body.get("verilog_code", "")
     error_log   = body.get("error_log", "None")
