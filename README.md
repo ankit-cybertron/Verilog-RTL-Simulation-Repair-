@@ -22,6 +22,26 @@ RTLRepair-Env is a specialized **AI agent benchmark environment** for hardware e
 
 ---
 
+## 🎯 Motivation
+
+RTL (Register-Transfer Level) hardware bugs cost semiconductor companies between $5M to $50M if they reach chip tapeout. Finding and repairing Verilog code before tapeout is critical. This OpenEnv benchmark challenges AI agents to take on the role of hardware verification engineers: reading compiler warnings, analyzing simulation outputs, and surgically patching Verilog syntax and state machine logic.
+
+---
+
+## 🏗️ Action and Observation Spaces
+
+The environment strictly adheres to OpenEnv `Pydantic` spec types:
+
+- **Action Space (`RTLAction`):**
+  - `verilog_code` (str): The complete, repaired Verilog module rewritten by the AI.
+  - `explanation` (str): Optional reasoning JSON snippet of what was changed and why.
+
+- **Observation Space (`RTLObservation`):**
+  - Context: `task_id`, `module_name`, `module_spec`, `broken_module`
+  - Dynamic Feedback: `compile_error` (iverilog output), `sim_output` (vvp stdout), `test_vector_results` (per-test array pass/fail), `vectors_passed`, `vectors_total`.
+
+---
+
 ## 📖 Evaluation Guide for Judges
 
 To evaluate this environment, follow these steps to connect an agent and run the benchmark.
@@ -47,11 +67,12 @@ You can run the full evaluation suite using the `inference.py` script provided.
    python inference.py
    ```
 
-### 📊 Expected Output
-Each task produces structured JSON logs. The final score is the **best reward** achieved across all steps in an episode (0.0 to 1.0).
-- **Easy:** Compilation and base signals (Target: >0.60)
-- **Medium:** ALU Logic & Operators (Target: >0.40)
-- **Hard:** FSM State Transitions (Target: >0.20)
+### 📊 Baseline Performance Scores
+Using the bundled `inference.py` script running `llama-3.3-70b-versatile` over all tasks (Max Score: 0.99):
+
+- **Easy (Compile/Syntax):** Baseline Score `0.99` (Successfully hits perfect logic ceiling on step 1 or 2)
+- **Medium (ALU Operations):** Baseline Score `0.85 - 0.99` (Usually resolves operations within 2 steps)
+- **Hard (FSM Transitions):** Baseline Score `0.20 - 0.60` (Frontier models often fail to identify combinatorial output overrides correctly)
 
 ---
 
@@ -67,15 +88,14 @@ This environment provides a tiered difficulty progression based on real-world ha
 
 ---
 
-## 📏 Reward Function
+## 📏 Dynamic Reward Function
 
-We use a **Deterministic Grading Engine** based on `iverilog`. Agents are scored 0.0 to 1.0 per step:
+We use a **Deterministic Grading Engine** based on runtime `iverilog` AST compilation and simulation. Scores are rigidly clamped between `(0.01, 0.99)` to satisfy gradient requirements.
 
-- **+0.20** | **Compilation:** Does the module compile without errors?
-- **+0.05** | **Progress:** Per individual compiler error eliminated since the previous step.
-- **+0.70** | **Simulation:** Fraction of test vectors passing (e.g., +0.35 if 50% pass).
-- **+0.10** | **Surgical Precision:** Bonus for not modifying correct lines in the file.
-- **-0.02** | **Efficiency:** Small penalty per step to encourage the fastest possible fix.
+- **`+0.20` | Compilation Eval:** `+0.20` for perfect AST compilation. Scaled down to `0.10` if compiler warnings emit, and scales negatively based on error magnitude if it fails.
+- **`+0.80` | Logic Execution:** Fractional ratio of total test vectors logically passed against the testbench framework.
+- **`-0.10` | Zero-Logic Penalty:** If the module compiles perfectly but deliberately avoids logic (0 vectors pass), it triggers a destructive behaviour penalty.
+- **`-0.20` | Retrial Stagnation:** Incremental attempt tracker deducts `-0.05` recursively if the agent continuously resubmits failing modules (spends compute without solving it).
 
 ---
 
