@@ -160,7 +160,7 @@ async def ai_fix_task(task_id: str, body: dict = Body(...)):
         }
 
     api_base = os.getenv("API_BASE_URL", "https://api.groq.com/openai/v1")
-    model    = os.getenv("MODEL_NAME", "llama3-70b-8192")
+    model    = os.getenv("MODEL_NAME", "llama-3.3-70b-versatile")
 
     broken_code = body.get("verilog_code", "")
     error_log   = body.get("error_log", "None")

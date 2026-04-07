@@ -23,7 +23,7 @@ from client import RTLRepairEnv, RTLAction
 
 # ── Environment variables (HACKATHON SUBMISSION CHECKLIST COMPLIANCE) ─────────
 API_BASE_URL = os.getenv("API_BASE_URL", "https://api.groq.com/openai/v1")
-MODEL_NAME   = os.getenv("MODEL_NAME", "llama3-70b-8192")
+MODEL_NAME   = os.getenv("MODEL_NAME", "llama-3.3-70b-versatile")
 HF_TOKEN     = os.getenv("HF_TOKEN")  # MUST NOT HAVE DEFAULT
 HF_SPACE_URL = os.getenv("HF_SPACE_URL", "https://cybertronak-rtlrepair-env.hf.space")
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")  # Optional: for docker-based runs
