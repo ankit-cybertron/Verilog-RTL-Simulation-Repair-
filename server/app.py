@@ -376,6 +376,10 @@ def read_root():
                 <textarea class="verilog-editor" id="ref-easy" readonly style="opacity:.55">{easy_correct}</textarea>
             </div>
         </div>
+        <div class="ai-panel" id="ai-panel-easy" style="display:none; margin-top:1rem; padding:1.2rem; background:rgba(99,102,241,.1); border:1px solid var(--p); border-radius:1rem;">
+            <div class="log-header" style="color:var(--acc); opacity:1;">&#129302; AI Reasoning</div>
+            <div class="log-body" id="ai-exp-easy" style="font-family:'Inter',sans-serif;"></div>
+        </div>
         <div class="log-panel" id="log-easy">
             <div class="log-header">
                 <span>Simulation Log</span>
@@ -414,6 +418,10 @@ def read_root():
                 <label>📖 Repair Reference (read-only)</label>
                 <textarea class="verilog-editor" id="ref-medium" readonly style="opacity:.55">{medium_correct}</textarea>
             </div>
+        </div>
+        <div class="ai-panel" id="ai-panel-medium" style="display:none; margin-top:1rem; padding:1.2rem; background:rgba(99,102,241,.1); border:1px solid var(--p); border-radius:1rem;">
+            <div class="log-header" style="color:var(--acc); opacity:1;">&#129302; AI Reasoning</div>
+            <div class="log-body" id="ai-exp-medium" style="font-family:'Inter',sans-serif;"></div>
         </div>
         <div class="log-panel" id="log-medium">
             <div class="log-header">
@@ -454,6 +462,10 @@ def read_root():
                 <textarea class="verilog-editor" id="ref-hard" readonly style="opacity:.55">{hard_correct}</textarea>
             </div>
         </div>
+        <div class="ai-panel" id="ai-panel-hard" style="display:none; margin-top:1rem; padding:1.2rem; background:rgba(99,102,241,.1); border:1px solid var(--p); border-radius:1rem;">
+            <div class="log-header" style="color:var(--acc); opacity:1;">&#129302; AI Reasoning</div>
+            <div class="log-body" id="ai-exp-hard" style="font-family:'Inter',sans-serif;"></div>
+        </div>
         <div class="log-panel" id="log-hard">
             <div class="log-header">
                 <span>Simulation Log</span>
@@ -486,9 +498,15 @@ const lastLog = {{}};
 
 function loadPreset(tid, mode) {{
     document.getElementById(`code-${{tid}}`).value = PRESETS[tid][mode];
+    const aiPanel = document.getElementById(`ai-panel-${{tid}}`);
+    if(aiPanel) aiPanel.style.display = "none";
 }}
 
-async function runGrade(tid) {{
+async function runGrade(tid, fromAi=false) {{
+    if (!fromAi) {{
+        const aiPanel = document.getElementById(`ai-panel-${{tid}}`);
+        if(aiPanel) aiPanel.style.display = "none";
+    }}
     const code = document.getElementById(`code-${{tid}}`).value;
     const logPanel = document.getElementById(`log-${{tid}}`);
     const logBody  = document.getElementById(`log-body-${{tid}}`);
@@ -556,9 +574,15 @@ async function autoFix(tid) {{
 
         if (data.status === "ok" && data.fixed_code) {{
             document.getElementById(`code-${{tid}}`).value = data.fixed_code;
-            logBody.innerHTML = `<span style='color:#a78bfa'>&#129302; ${{data.explanation}}</span><br><span style='color:var(--g)'>&#10003; Code updated — running grader now...</span>`;
-            // Auto-run grader with fixed code
-            setTimeout(() => runGrade(tid), 600);
+            
+            const aiPanel = document.getElementById(`ai-panel-${{tid}}`);
+            const aiExp   = document.getElementById(`ai-exp-${{tid}}`);
+            aiPanel.style.display = "block";
+            aiExp.textContent = data.explanation;
+
+            logBody.innerHTML = `<span style='color:var(--g)'>&#10003; Code updated — running grader now...</span>`;
+            // Auto-run grader with fixed code, preserving AI panel
+            setTimeout(() => runGrade(tid, true), 600);
         }} else {{
             logBody.innerHTML = `<span style='color:var(--r)'>&#10060; AI fix failed: ${{data.explanation}}</span>`;
             fixTip.style.display = "block";
