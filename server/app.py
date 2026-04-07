@@ -26,7 +26,7 @@ import subprocess, tempfile, re
 
 TOTALS = {"easy": 5, "medium": 10, "hard": 20}
 
-def _grade_verilog(task_id: str, verilog_code: str) -> dict:
+def _grade_verilog(task_id: str, verilog_code: str, attempts: int = 1) -> dict:
     """Core grader: compiles + simulates any Verilog string against a task testbench."""
     total = TOTALS.get(task_id, 5)
     base_dir = f"server/tasks/{task_id}"
@@ -41,7 +41,7 @@ def _grade_verilog(task_id: str, verilog_code: str) -> dict:
             f.write(verilog_code)
 
         # ── Step 1: Compilation ────────────────────────────────────────────────
-        logs.append("📋 STEP 1: Compiling with iverilog...")
+        logs.append("[STEP 1]: Compiling with iverilog...")
         compile_res = subprocess.run(
             ["iverilog", "-o", sim_bin, agent_file, tb_file],
             capture_output=True, text=True, timeout=10
@@ -50,11 +50,11 @@ def _grade_verilog(task_id: str, verilog_code: str) -> dict:
         if compile_res.returncode != 0:
             err = compile_res.stderr.strip()
             for line in err.splitlines():
-                logs.append(f"  ❌ {line}")
+                logs.append(f"  [ERROR] {line}")
             error_count = len([l for l in err.splitlines() if "error" in l.lower()])
             score = max(0.0, 0.05 * (3 - error_count))
-            logs.append(f"\n⚠️  Compilation FAILED — {error_count} error(s)")
-            logs.append(f"📊 SCORE: {score:.2f}  (0.0 base — compile failed)")
+            logs.append(f"\n[WARN] Compilation FAILED - {error_count} error(s)")
+            logs.append(f"[INFO] SCORE: {score:.2f}  (0.0 base - compile failed)")
             return {
                 "status": "compile_error",
                 "compile_error": err,
@@ -66,10 +66,10 @@ def _grade_verilog(task_id: str, verilog_code: str) -> dict:
                 "vector_results": []
             }
 
-        logs.append("  ✅ Compilation SUCCESS")
+        logs.append("  [PASS] Compilation SUCCESS")
 
         # ── Step 2: Simulation ─────────────────────────────────────────────────
-        logs.append("\n📋 STEP 2: Running simulation with vvp...")
+        logs.append("\n[STEP 2]: Running simulation with vvp...")
         sim_res = subprocess.run(
             ["vvp", sim_bin],
             capture_output=True, text=True, timeout=10
@@ -77,7 +77,7 @@ def _grade_verilog(task_id: str, verilog_code: str) -> dict:
         stdout = sim_res.stdout
 
         # ── Step 3: Parse per-vector results ───────────────────────────────────
-        logs.append("\n📋 STEP 3: Test Vector Results:")
+        logs.append("\n[STEP 3]: Test Vector Results:")
         vector_results = []
         passed = 0
 
@@ -86,9 +86,9 @@ def _grade_verilog(task_id: str, verilog_code: str) -> dict:
                 is_pass = "PASS" in line
                 if is_pass:
                     passed += 1
-                    logs.append(f"  ✅ {line.strip()}")
+                    logs.append(f"  [PASS] {line.strip()}")
                 else:
-                    logs.append(f"  ❌ {line.strip()}")
+                    logs.append(f"  [FAIL] {line.strip()}")
                 vector_results.append({"line": line.strip(), "passed": is_pass})
 
         # Parse SIMULATION_DONE if vectors weren't individually logged
@@ -96,7 +96,7 @@ def _grade_verilog(task_id: str, verilog_code: str) -> dict:
             try:
                 failed_count = int(stdout.split("failed=")[1].split()[0])
                 passed = total - failed_count
-                logs.append(f"  📊 Parsed from summary: {passed}/{total} passed")
+                logs.append(f"  [INFO] Parsed from summary: {passed}/{total} passed")
             except:
                 passed = 0
 
@@ -107,13 +107,23 @@ def _grade_verilog(task_id: str, verilog_code: str) -> dict:
         # ── Step 4: Score Calculation ──────────────────────────────────────────
         compile_bonus = 0.20
         vector_score  = (passed / total) * 0.70
-        score = round(compile_bonus + vector_score, 2)
+        
+        # Dynamic penalty: If you keep failing, deduct score 
+        # (Only penalize if it's not perfect to prevent losing points on correct solutions requested explicitly)
+        penalty = 0.0
+        if passed < total and attempts > 1:
+            penalty = round(min(0.20, (attempts - 1) * 0.05), 2)
+            
+        score = round(compile_bonus + vector_score - penalty, 2)
+        score = max(0.0, score)
 
-        logs.append(f"\n📋 STEP 4: Score Breakdown:")
-        logs.append(f"  ✅ Compilation bonus:  +0.20")
-        logs.append(f"  📈 Vector score:       +{vector_score:.2f}  ({passed}/{total} × 0.70)")
+        logs.append(f"\n[STEP 4]: Score Breakdown:")
+        logs.append(f"  [+] Compilation bonus:  +0.20")
+        logs.append(f"  [+] Vector score:       +{vector_score:.2f}  ({passed}/{total} × 0.70)")
+        if penalty > 0:
+            logs.append(f"  [-] Repeated fail pen.: -{penalty:.2f}  (Attempt #{attempts})")
         logs.append(f"  ─────────────────────────────")
-        logs.append(f"  🏆 FINAL SCORE:        {score:.2f} / 0.90 max")
+        logs.append(f"  FINAL SCORE:        {score:.2f} / 0.90 max")
 
         status = "success" if passed == total else "logic_error"
         return {
@@ -137,9 +147,10 @@ async def grade_task(task_id: str, body: dict = Body(...)):
     if task_id not in TOTALS:
         return {"status": "error", "score": 0.0, "logs": f"Unknown task: {task_id}"}
     verilog = body.get("verilog_code", "")
+    attempts = body.get("attempts", 1)  # dynamic penalty counter
     if not verilog.strip():
         return {"status": "error", "score": 0.0, "logs": "Empty Verilog code submitted."}
-    return _grade_verilog(task_id, verilog)
+    return _grade_verilog(task_id, verilog, attempts)
 
 
 @app.post("/ai-fix/{task_id}")
@@ -362,35 +373,35 @@ def read_root():
             <div class="btn-group">
                 <button class="btn btn-broken" onclick="loadPreset('easy','broken')">Load Broken</button>
                 <button class="btn btn-fixed"  onclick="loadPreset('easy','fixed')">Load Solution</button>
-                <button class="btn btn-run"    onclick="runGrade('easy')">&#9654; Run &amp; Grade</button>
-                <button class="btn btn-ai" id="ai-btn-easy" onclick="autoFix('easy')">&#129302; Auto-Fix</button>
+                <button class="btn btn-run"    onclick="runGrade('easy')">Run &amp; Grade</button>
+                <button class="btn btn-ai" id="ai-btn-easy" onclick="autoFix('easy')">Auto-Fix</button>
             </div>
         </div>
         <div class="editor-grid">
             <div class="editor-box">
-                <label>✏️ Your Verilog (editable)</label>
+                <label>Your Verilog (editable)</label>
                 <textarea class="verilog-editor" id="code-easy">{easy_broken}</textarea>
             </div>
             <div class="editor-box">
-                <label>📖 Repair Reference (read-only)</label>
+                <label>Repair Reference (read-only)</label>
                 <textarea class="verilog-editor" id="ref-easy" readonly style="opacity:.55">{easy_correct}</textarea>
             </div>
         </div>
         <div class="ai-panel" id="ai-panel-easy" style="display:none; margin-top:1rem; padding:1.2rem; background:rgba(99,102,241,.1); border:1px solid var(--p); border-radius:1rem;">
-            <div class="log-header" style="color:var(--acc); opacity:1;">&#129302; AI Reasoning</div>
+            <div class="log-header" style="color:var(--acc); opacity:1;">AI Reasoning</div>
             <div class="log-body" id="ai-exp-easy" style="font-family:'Inter',sans-serif;"></div>
         </div>
         <div class="log-panel" id="log-easy">
             <div class="log-header">
                 <span>Simulation Log</span>
-                <span style="opacity:.5;font-weight:400">Scroll to see all output ↕</span>
+                <span style="opacity:.5;font-weight:400">Scroll to see all output &uarr;&darr;</span>
             </div>
             <div class="log-scroll">
                 <div class="log-body" id="log-body-easy"></div>
             </div>
             <div class="fix-tip" id="fix-tip-easy">
-                &#128161; <b>Errors detected!</b> Edit the code above and re-run, or click
-                <b>&#129302; Auto-Fix</b> to let the AI repair it automatically.
+                <b>Errors detected!</b> Edit the code above and re-run, or click
+                <b>Auto-Fix</b> to let the AI repair it automatically.
             </div>
         </div>
     </div>
@@ -405,35 +416,35 @@ def read_root():
             <div class="btn-group">
                 <button class="btn btn-broken" onclick="loadPreset('medium','broken')">Load Broken</button>
                 <button class="btn btn-fixed"  onclick="loadPreset('medium','fixed')">Load Solution</button>
-                <button class="btn btn-run"    onclick="runGrade('medium')">&#9654; Run &amp; Grade</button>
-                <button class="btn btn-ai" id="ai-btn-medium" onclick="autoFix('medium')">&#129302; Auto-Fix</button>
+                <button class="btn btn-run"    onclick="runGrade('medium')">Run &amp; Grade</button>
+                <button class="btn btn-ai" id="ai-btn-medium" onclick="autoFix('medium')">Auto-Fix</button>
             </div>
         </div>
         <div class="editor-grid">
             <div class="editor-box">
-                <label>✏️ Your Verilog (editable)</label>
+                <label>Your Verilog (editable)</label>
                 <textarea class="verilog-editor" id="code-medium">{medium_broken}</textarea>
             </div>
             <div class="editor-box">
-                <label>📖 Repair Reference (read-only)</label>
+                <label>Repair Reference (read-only)</label>
                 <textarea class="verilog-editor" id="ref-medium" readonly style="opacity:.55">{medium_correct}</textarea>
             </div>
         </div>
         <div class="ai-panel" id="ai-panel-medium" style="display:none; margin-top:1rem; padding:1.2rem; background:rgba(99,102,241,.1); border:1px solid var(--p); border-radius:1rem;">
-            <div class="log-header" style="color:var(--acc); opacity:1;">&#129302; AI Reasoning</div>
+            <div class="log-header" style="color:var(--acc); opacity:1;">AI Reasoning</div>
             <div class="log-body" id="ai-exp-medium" style="font-family:'Inter',sans-serif;"></div>
         </div>
         <div class="log-panel" id="log-medium">
             <div class="log-header">
                 <span>Simulation Log</span>
-                <span style="opacity:.5;font-weight:400">Scroll to see all output ↕</span>
+                <span style="opacity:.5;font-weight:400">Scroll to see all output &uarr;&darr;</span>
             </div>
             <div class="log-scroll">
                 <div class="log-body" id="log-body-medium"></div>
             </div>
             <div class="fix-tip" id="fix-tip-medium">
-                &#128161; <b>Errors detected!</b> Edit the code above and re-run, or click
-                <b>&#129302; Auto-Fix</b> to let the AI repair it automatically.
+                <b>Errors detected!</b> Edit the code above and re-run, or click
+                <b>Auto-Fix</b> to let the AI repair it automatically.
             </div>
         </div>
     </div>
@@ -448,35 +459,35 @@ def read_root():
             <div class="btn-group">
                 <button class="btn btn-broken" onclick="loadPreset('hard','broken')">Load Broken</button>
                 <button class="btn btn-fixed"  onclick="loadPreset('hard','fixed')">Load Solution</button>
-                <button class="btn btn-run"    onclick="runGrade('hard')">&#9654; Run &amp; Grade</button>
-                <button class="btn btn-ai" id="ai-btn-hard" onclick="autoFix('hard')">&#129302; Auto-Fix</button>
+                <button class="btn btn-run"    onclick="runGrade('hard')">Run &amp; Grade</button>
+                <button class="btn btn-ai" id="ai-btn-hard" onclick="autoFix('hard')">Auto-Fix</button>
             </div>
         </div>
         <div class="editor-grid">
             <div class="editor-box">
-                <label>✏️ Your Verilog (editable)</label>
+                <label>Your Verilog (editable)</label>
                 <textarea class="verilog-editor" id="code-hard">{hard_broken}</textarea>
             </div>
             <div class="editor-box">
-                <label>📖 Repair Reference (read-only)</label>
+                <label>Repair Reference (read-only)</label>
                 <textarea class="verilog-editor" id="ref-hard" readonly style="opacity:.55">{hard_correct}</textarea>
             </div>
         </div>
         <div class="ai-panel" id="ai-panel-hard" style="display:none; margin-top:1rem; padding:1.2rem; background:rgba(99,102,241,.1); border:1px solid var(--p); border-radius:1rem;">
-            <div class="log-header" style="color:var(--acc); opacity:1;">&#129302; AI Reasoning</div>
+            <div class="log-header" style="color:var(--acc); opacity:1;">AI Reasoning</div>
             <div class="log-body" id="ai-exp-hard" style="font-family:'Inter',sans-serif;"></div>
         </div>
         <div class="log-panel" id="log-hard">
             <div class="log-header">
                 <span>Simulation Log</span>
-                <span style="opacity:.5;font-weight:400">Scroll to see all output ↕</span>
+                <span style="opacity:.5;font-weight:400">Scroll to see all output &uarr;&darr;</span>
             </div>
             <div class="log-scroll">
                 <div class="log-body" id="log-body-hard"></div>
             </div>
             <div class="fix-tip" id="fix-tip-hard">
-                &#128161; <b>Errors detected!</b> Edit the code above and re-run, or click
-                <b>&#129302; Auto-Fix</b> to let the AI repair it automatically.
+                <b>Errors detected!</b> Edit the code above and re-run, or click
+                <b>Auto-Fix</b> to let the AI repair it automatically.
             </div>
         </div>
     </div>
@@ -495,11 +506,14 @@ const TASK_SPECS = {{
 }};
 
 const lastLog = {{}};
+const attemptsTracker = {{ easy: 1, medium: 1, hard: 1 }};
 
 function loadPreset(tid, mode) {{
     document.getElementById(`code-${{tid}}`).value = PRESETS[tid][mode];
     const aiPanel = document.getElementById(`ai-panel-${{tid}}`);
     if(aiPanel) aiPanel.style.display = "none";
+    // Reset attempts if loading preset
+    attemptsTracker[tid] = 1;
 }}
 
 async function runGrade(tid, fromAi=false) {{
@@ -514,13 +528,13 @@ async function runGrade(tid, fromAi=false) {{
 
     logPanel.style.display = "block";
     fixTip.style.display   = "none";
-    logBody.innerHTML = "<span style='color:var(--acc)'>&#9889; Compiling and simulating...</span>";
+    logBody.innerHTML = "<span style='color:var(--acc)'>[compiling and simulating...]</span>";
 
     try {{
         const res = await fetch(`/grade/${{tid}}`, {{
             method: "POST",
             headers: {{ "Content-Type": "application/json" }},
-            body: JSON.stringify({{ verilog_code: code }})
+            body: JSON.stringify({{ verilog_code: code, attempts: attemptsTracker[tid] }})
         }});
         const data = await res.json();
 
@@ -529,6 +543,13 @@ async function runGrade(tid, fromAi=false) {{
         const passed  = data.passed ?? 0;
         const isError = data.status === "compile_error" || data.status === "logic_error";
         const scoreClass = score >= 0.85 ? "score-pass" : score >= 0.35 ? "score-warn" : "score-fail";
+
+        // Increment attempt tracker ONLY if there's an error, so retrying fixes costs points
+        if (isError) {{
+            attemptsTracker[tid]++;
+        }} else {{
+            attemptsTracker[tid] = 1; // Reset if passed
+        }}
 
         const scoreLine = `<div class="score-badge ${{scoreClass}}">SCORE: ${{score.toFixed(2)}} &nbsp;|&nbsp; ${{passed}}/${{total}} vectors passed</div>`;
         const logText   = (data.logs || "No output").replace(/</g,"&lt;").replace(/>/g,"&gt;");
@@ -542,7 +563,7 @@ async function runGrade(tid, fromAi=false) {{
         logPanel.querySelector(".log-scroll").scrollTop = 0;
 
     }} catch(e) {{
-        logBody.innerHTML = `<span style='color:var(--r)'>&#10060; Request failed: ${{e.message}}</span>`;
+        logBody.innerHTML = `<span style='color:var(--r)'>[ERROR] Request failed: ${{e.message}}</span>`;
         fixTip.style.display = "block";
     }}
 }}
@@ -557,8 +578,8 @@ async function autoFix(tid) {{
     logPanel.style.display = "block";
     fixTip.style.display   = "none";
     btn.disabled = true;
-    btn.textContent = "&#129302; Thinking...";
-    logBody.innerHTML = "<span style='color:#a78bfa'>&#129302; Sending to AI for analysis and repair...</span>";
+    btn.textContent = "Thinking...";
+    logBody.innerHTML = "<span style='color:#a78bfa'>[Sending to AI for analysis and repair...]</span>";
 
     try {{
         const res = await fetch(`/ai-fix/${{tid}}`, {{
@@ -580,19 +601,19 @@ async function autoFix(tid) {{
             aiPanel.style.display = "block";
             aiExp.textContent = data.explanation;
 
-            logBody.innerHTML = `<span style='color:var(--g)'>&#10003; Code updated — running grader now...</span>`;
+            logBody.innerHTML = `<span style='color:var(--g)'>[OK] Code updated — running grader now...</span>`;
             // Auto-run grader with fixed code, preserving AI panel
             setTimeout(() => runGrade(tid, true), 600);
         }} else {{
-            logBody.innerHTML = `<span style='color:var(--r)'>&#10060; AI fix failed: ${{data.explanation}}</span>`;
+            logBody.innerHTML = `<span style='color:var(--r)'>[ERROR] AI fix failed: ${{data.explanation}}</span>`;
             fixTip.style.display = "block";
         }}
     }} catch(e) {{
-        logBody.innerHTML = `<span style='color:var(--r)'>&#10060; AI request failed: ${{e.message}}</span>`;
+        logBody.innerHTML = `<span style='color:var(--r)'>[ERROR] AI request failed: ${{e.message}}</span>`;
         fixTip.style.display = "block";
     }} finally {{
         btn.disabled = false;
-        btn.textContent = "&#129302; Auto-Fix";
+        btn.textContent = "Auto-Fix";
     }}
 }}
 </script>
