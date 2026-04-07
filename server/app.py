@@ -178,11 +178,11 @@ SIMULATION/COMPILE ERRORS:
 {error_log}
 
 INSTRUCTIONS:
-- Return ONLY the complete corrected Verilog module
-- Do NOT add markdown fences (no ```verilog)
-- Do NOT add any explanation outside the code
-- Keep all module names, port names, and parameters unchanged
-- Fix ONLY what is broken — preserve correct logic"""
+You MUST respond with exactly ONE valid JSON object, and NOTHING ELSE. Use this exact format:
+{{
+  "explanation": "A concise, 1-2 sentence summary of exactly what you changed to fix the errors.",
+  "fixed_code": "The complete, corrected Verilog module code here. Keep all module names and ports unchanged."
+}}"""
 
     try:
         client = OpenAI(base_url=api_base, api_key=api_key)
@@ -191,14 +191,23 @@ INSTRUCTIONS:
             messages=[{"role": "user", "content": prompt}],
             temperature=0.1,
             max_tokens=1500,
+            response_format={"type": "json_object"}
         )
-        fixed = (completion.choices[0].message.content or "").strip()
-        # Strip markdown fences if model added them anyway
-        import re as _re
-        fixed = _re.sub(r"```(?:verilog|systemverilog|sv)?\s*", "", fixed)
-        fixed = _re.sub(r"```\s*$", "", fixed, flags=_re.MULTILINE).strip()
+        response_text = (completion.choices[0].message.content or "").strip()
+        
+        import json as _json
+        try:
+            parsed = _json.loads(response_text)
+            fixed = parsed.get("fixed_code", "")
+            explanation = parsed.get("explanation", f"Fixed by {model}")
+        except:
+            fixed = response_text
+            explanation = f"Fixed by {model} (JSON parse failed)"
+            import re as _re
+            fixed = _re.sub(r"```(?:verilog|json)?\s*", "", fixed)
+            fixed = _re.sub(r"```\s*$", "", fixed, flags=_re.MULTILINE).strip()
 
-        return {"status": "ok", "fixed_code": fixed, "explanation": f"Fixed by {model}"}
+        return {"status": "ok", "fixed_code": fixed, "explanation": explanation}
     except Exception as e:
         return {"status": "error", "fixed_code": broken_code, "explanation": f"AI call failed: {str(e)}"}
 
