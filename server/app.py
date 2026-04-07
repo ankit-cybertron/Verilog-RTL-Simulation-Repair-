@@ -507,7 +507,7 @@ async function runGrade(tid) {{
         const logText   = (data.logs || "No output").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
         lastLog[tid] = data.logs || "";
-        logBody.innerHTML = scoreLine + "\n\n" + logText;
+        logBody.innerHTML = scoreLine + "<br><br>" + logText;
 
         if (isError) fixTip.style.display = "block";
         else fixTip.style.display = "none";
@@ -547,7 +547,7 @@ async function autoFix(tid) {{
 
         if (data.status === "ok" && data.fixed_code) {{
             document.getElementById(`code-${{tid}}`).value = data.fixed_code;
-            logBody.innerHTML = `<span style='color:#a78bfa'>&#129302; ${{data.explanation}}</span>\n<span style='color:var(--g)'>&#10003; Code updated — running grader now...</span>`;
+            logBody.innerHTML = `<span style='color:#a78bfa'>&#129302; ${{data.explanation}}</span><br><span style='color:var(--g)'>&#10003; Code updated — running grader now...</span>`;
             // Auto-run grader with fixed code
             setTimeout(() => runGrade(tid), 600);
         }} else {{
