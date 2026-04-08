@@ -166,11 +166,11 @@ async def grade_task(task_id: str, body: dict = Body(...)):
     Body: { "verilog_code": "..." }
     """
     if task_id not in TOTALS:
-        return {"status": "error", "score": 0.0, "logs": f"Unknown task: {task_id}"}
+        return {"status": "error", "score": 0.01, "logs": f"Unknown task: {task_id}"}
     verilog = body.get("verilog_code", "")
     attempts = body.get("attempts", 1)  # dynamic penalty counter
     if not verilog.strip():
-        return {"status": "error", "score": 0.0, "logs": "Empty Verilog code submitted."}
+        return {"status": "error", "score": 0.01, "logs": "Empty Verilog code submitted."}
     return _grade_verilog(task_id, verilog, attempts)
 
 
@@ -256,7 +256,7 @@ async def verify_task(task_id: str, mode: str = "broken"):
             code = f.read()
         return _grade_verilog(task_id, code)
     except FileNotFoundError:
-        return {"status": "error", "score": 0.0, "logs": f"{v_file} not found for task {task_id}"}
+        return {"status": "error", "score": 0.01, "logs": f"{v_file} not found for task {task_id}"}
 
 
 def _load_task_code(task_id: str, filename: str) -> str:
