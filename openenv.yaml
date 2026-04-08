@@ -28,7 +28,7 @@ tasks:
       Bugs include: wrong signal name, incorrect sensitivity list, wrong reset signal name.
     max_steps: 3
     grader: deterministic
-    score_range: [0.0, 1.0]
+    score_range: [0.01, 0.99]
   - id: medium
     name: "Logic repair"
     difficulty: medium
@@ -38,7 +38,7 @@ tasks:
       all arithmetic and logic operations. Bugs are operator-level (wrong op).
     max_steps: 5
     grader: deterministic
-    score_range: [0.0, 1.0]
+    score_range: [0.01, 0.99]
   - id: hard
     name: "FSM repair"
     difficulty: hard
@@ -49,7 +49,7 @@ tasks:
       Hard task — frontier models score 0.2-0.4 on baseline.
     max_steps: 7
     grader: deterministic
-    score_range: [0.0, 1.0]
+    score_range: [0.01, 0.99]
 author: cybertronak
 space_url: https://cybertronak-rtlrepair-env.hf.space
 license: MIT

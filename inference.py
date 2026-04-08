@@ -138,7 +138,7 @@ async def run_task(task_id: str) -> float:
     history: List[str] = []
     rewards: List[float] = []
     steps_taken = 0
-    score = 0.0
+    score = 0.01
     success = False
 
     async with RTLRepairEnv(base_url=HF_SPACE_URL) as env:
@@ -159,7 +159,9 @@ async def run_task(task_id: str) -> float:
                 explanation=f"Step {step} attempt",
             ))
             obs = result.observation
-            reward = result.reward or 0.0
+            reward = result.reward if result.reward is not None else 0.01
+            # Force compliance with strict bounds
+            reward = round(max(0.01, min(0.99, reward)), 2)
             done = result.done
 
             rewards.append(reward)
@@ -182,8 +184,8 @@ async def run_task(task_id: str) -> float:
                 break
 
         # Final score: best reward achieved across all steps (not average)
-        score = max(rewards) if rewards else 0.0
-        score = min(max(score, 0.0), 1.0)
+        score = max(rewards) if rewards else 0.01
+        score = round(max(0.01, min(0.99, score)), 2)
         success = score >= SUCCESS_SCORE_THRESHOLD
 
     log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
