@@ -187,7 +187,7 @@ def compute_reward(
     """
     # Guard: empty or non-string input
     if not agent_verilog or not isinstance(agent_verilog, str):
-        return 0.01, "Empty or invalid Verilog submitted", "", 0, 0, []
+        return 0.02, "Empty or invalid Verilog submitted", "", 0, 0, []
 
     # Strip markdown fences if agent wrapped code in ```verilog ... ```
     cleaned = re.sub(r"```(?:verilog|systemverilog|sv)?\s*", "", agent_verilog)
@@ -214,7 +214,7 @@ def compute_reward(
             # Return early — can't simulate if compile failed
             reward -= 0.02 * current_step
             return (
-                round(max(0.01, min(0.99, reward)), 2),
+                round(max(0.02, min(0.98, reward)), 2),
                 compile_error, sim_output,
                 vectors_passed, vectors_total, vector_results,
             )
@@ -247,7 +247,7 @@ def compute_reward(
     reward -= 0.02 * current_step
 
     return (
-        round(max(0.01, min(0.99, reward)), 2),
+        round(max(0.02, min(0.98, reward)), 2),
         compile_error,
         sim_output,
         vectors_passed,

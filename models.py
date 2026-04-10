@@ -67,6 +67,6 @@ class RTLObservation(Observation):
     # Episode state
     step_count: int = Field(default=0, description="Steps taken in this episode.")
     max_steps: int = Field(..., description="Max steps allowed before episode ends.")
-    reward: float = Field(default=0.0, description="Reward earned last step. Range 0.0-1.0.")
+    reward: float = Field(default=0.02, description="Reward earned last step. Range 0.0-1.0.")
     done: bool = Field(default=False, description="True if episode is complete.")
     episode_id: str = Field(default="", description="Unique episode identifier.")

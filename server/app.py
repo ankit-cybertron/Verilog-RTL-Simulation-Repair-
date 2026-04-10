@@ -53,10 +53,10 @@ def _grade_verilog(task_id: str, verilog_code: str, attempts: int = 1) -> dict:
                 logs.append(f"  [ERROR] {line}")
             error_count = len([l for l in err.splitlines() if "error" in l.lower()])
             # Partial marks for almost compiling
-            score = max(0.01, 0.05 * (3 - error_count))
-            score = round(max(0.01, min(0.99, score)), 2)
+            score = max(0.02, 0.05 * (3 - error_count))
+            score = round(max(0.02, min(0.98, score)), 2)
             logs.append(f"\n[WARN] Compilation FAILED - {error_count} error(s)")
-            logs.append(f"[INFO] FINAL SCORE: {score:.2f}  (0.01 base - compile failed)")
+            logs.append(f"[INFO] FINAL SCORE: {score:.2f}  (0.02 base - compile failed)")
             return {
                 "status": "compile_error",
                 "compile_error": err,
@@ -138,7 +138,7 @@ def _grade_verilog(task_id: str, verilog_code: str, attempts: int = 1) -> dict:
             
         score -= penalty
         # OpenEnv strict requirement: Score must be in range (0.0, 1.0) exclusive
-        score = round(max(0.01, min(0.99, score)), 2)
+        score = round(max(0.02, min(0.98, score)), 2)
 
         logs.append(f"\n[STEP 4]: Score Breakdown:")
         for comp in score_components:
@@ -166,11 +166,11 @@ async def grade_task(task_id: str, body: dict = Body(...)):
     Body: { "verilog_code": "..." }
     """
     if task_id not in TOTALS:
-        return {"status": "error", "score": 0.01, "logs": f"Unknown task: {task_id}"}
+        return {"status": "error", "score": 0.02, "logs": f"Unknown task: {task_id}"}
     verilog = body.get("verilog_code", "")
     attempts = body.get("attempts", 1)  # dynamic penalty counter
     if not verilog.strip():
-        return {"status": "error", "score": 0.01, "logs": "Empty Verilog code submitted."}
+        return {"status": "error", "score": 0.02, "logs": "Empty Verilog code submitted."}
     return _grade_verilog(task_id, verilog, attempts)
 
 
@@ -256,7 +256,7 @@ async def verify_task(task_id: str, mode: str = "broken"):
             code = f.read()
         return _grade_verilog(task_id, code)
     except FileNotFoundError:
-        return {"status": "error", "score": 0.01, "logs": f"{v_file} not found for task {task_id}"}
+        return {"status": "error", "score": 0.02, "logs": f"{v_file} not found for task {task_id}"}
 
 
 def _load_task_code(task_id: str, filename: str) -> str:
