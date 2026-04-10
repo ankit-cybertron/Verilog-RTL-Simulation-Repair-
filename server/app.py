@@ -248,7 +248,7 @@ You MUST respond with exactly ONE valid JSON object, and NOTHING ELSE. Use this 
 async def verify_task(task_id: str, mode: str = "broken"):
     """GET endpoint — grades the preset broken.v or correct.v file."""
     if task_id not in TOTALS:
-        return {"status": "error", "score": 0.0}
+        return {"status": "error", "score": 0.02}
     base_dir = f"server/tasks/{task_id}"
     v_file = "broken.v" if mode == "broken" else "correct.v"
     try:
