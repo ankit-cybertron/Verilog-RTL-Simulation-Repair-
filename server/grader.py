@@ -193,7 +193,7 @@ def compute_reward(
     cleaned = re.sub(r"```(?:verilog|systemverilog|sv)?\s*", "", agent_verilog)
     cleaned = re.sub(r"```\s*$", "", cleaned, flags=re.MULTILINE).strip()
 
-    reward = 0.0
+    reward = 0.02
     compile_error = ""
     sim_output = ""
     vectors_passed = 0

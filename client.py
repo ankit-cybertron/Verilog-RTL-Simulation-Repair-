@@ -45,13 +45,13 @@ class RTLRepairEnv(EnvClient[RTLAction, RTLObservation, State]):
             vectors_total=obs_data.get("vectors_total", 0),
             step_count=obs_data.get("step_count", 0),
             max_steps=obs_data.get("max_steps", 3),
-            reward=obs_data.get("reward", 0.0),
+            reward=obs_data.get("reward", 0.02),
             done=payload.get("done", False),
             episode_id=obs_data.get("episode_id", ""),
         )
         return StepResult(
             observation=obs,
-            reward=payload.get("reward"),
+            reward=payload.get("reward", 0.02),
             done=payload.get("done", False),
         )
 
