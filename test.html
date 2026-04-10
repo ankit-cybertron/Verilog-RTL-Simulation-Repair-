@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>RTLRepair | Live Hardware Debugger</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --p:#6366f1; --bg:#0b0f1a; --c:#161b2c; --c2:#1e2537;
+            --t:#f8fafc; --acc:#38bdf8; --g:#4ade80; --r:#fb7185; --y:#fbbf24;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background:var(--bg); color:var(--t); font-family:'Inter',sans-serif; padding:2rem; }
+
+        .hero { text-align:center; margin-bottom:3rem; }
+        .hero h1 { font-size:2.8rem; font-weight:800; color:var(--acc); }
+        .hero p { opacity:.6; margin-top:.5rem; }
+        .badge { display:inline-block; margin-top:1rem; font-size:.75rem;
+                  background:rgba(99,102,241,.15); padding:.3rem 1rem;
+                  border-radius:9999px; border:1px solid var(--p); }
+
+        .task-panel { background:var(--c); border:1px solid rgba(255,255,255,.08);
+                       border-radius:1.5rem; padding:2rem; margin-bottom:2.5rem; }
+        .task-header { display:flex; justify-content:space-between; align-items:flex-start;
+                        margin-bottom:1.5rem; gap:1rem; flex-wrap:wrap; }
+        .task-title h2 { font-size:1.3rem; font-weight:700; }
+        .task-title p { opacity:.5; font-size:.85rem; margin-top:.2rem; }
+
+        .btn-group { display:flex; gap:.5rem; flex-wrap:wrap; }
+        .btn { padding:.5rem 1.1rem; border-radius:.7rem; font-weight:700;
+                font-size:.82rem; cursor:pointer; border:none; transition:.15s; }
+        .btn:hover { transform:scale(1.04); filter:brightness(1.1); }
+        .btn-broken { background:rgba(255,255,255,.1); color:var(--t);
+                       border:1px solid rgba(255,255,255,.2); }
+        .btn-fixed  { background:var(--p); color:#fff; }
+        .btn-run    { background:var(--acc); color:#000; }
+
+        .editor-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem;
+                        margin-bottom:1rem; }
+        .editor-box { display:flex; flex-direction:column; gap:.4rem; }
+        .editor-box label { font-size:.7rem; font-weight:700; opacity:.5;
+                             text-transform:uppercase; letter-spacing:.05em; }
+        textarea.verilog-editor {
+            background:#000; color:#e2e8f0; border:1px solid rgba(255,255,255,.1);
+            border-radius:.8rem; padding:1rem; font-family:'JetBrains Mono',monospace;
+            font-size:.78rem; resize:vertical; min-height:180px; outline:none;
+            transition:border .2s;
+        }
+        textarea.verilog-editor:focus { border-color:var(--p); }
+
+        .log-panel { background:#05070a; border:1px solid #1e2537; border-radius:1rem;
+                      padding:1.2rem; margin-top:1rem; display:none; }
+        .log-header { display:flex; justify-content:space-between; align-items:center;
+                       font-size:.7rem; font-weight:700; opacity:.4;
+                       text-transform:uppercase; margin-bottom:.8rem; }
+        .log-scroll { max-height:320px; overflow-y:auto; padding-right:.4rem; }
+        .log-scroll::-webkit-scrollbar { width:4px; }
+        .log-scroll::-webkit-scrollbar-track { background:transparent; }
+        .log-scroll::-webkit-scrollbar-thumb { background:var(--p); border-radius:2px; }
+        .log-body { font-family:'JetBrains Mono',monospace; font-size:.78rem;
+                     white-space:pre-wrap; line-height:1.7; }
+        .fix-tip { margin-top:.8rem; padding:.6rem 1rem; background:rgba(251,191,36,.1);
+                    border:1px solid var(--y); border-radius:.6rem; font-size:.78rem;
+                    color:var(--y); display:none; }
+        .score-badge { display:inline-block; font-family:'JetBrains Mono'; font-weight:700;
+                        padding:.25rem .75rem; border-radius:.4rem; font-size:.9rem;
+                        margin-bottom:.5rem; }
+        .score-pass { background:var(--g); color:#000; }
+        .score-fail { background:var(--r); color:#fff; }
+        .score-warn { background:var(--y); color:#000; }
+        .btn-ai { background:linear-gradient(135deg,#7c3aed,#6366f1); color:#fff; }
+        .btn-ai:disabled { opacity:.5; cursor:not-allowed; }
+
+        @media(max-width:700px) {
+            .editor-grid { grid-template-columns:1fr; }
+            .task-header { flex-direction:column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <h1>🛠️ RTLRepair Platform</h1>
+        <p>Interactive Hardware Bug Diagnosis & Live Simulation Benchmark</p>
+        <div class="badge">📡 <b>LIVE:</b> Edit any module and click Run to grade in real-time</div>
+    </div>
+
+    <!-- ─── EASY ─── -->
+    <div class="task-panel">
+        <div class="task-header">
+            <div class="task-title">
+                <h2>Level 01: 4-bit Synchronous Counter</h2>
+                <p>Syntax &amp; Port Sensitivities — 5 test vectors</p>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-broken" onclick="loadPreset('easy','broken')">Load Broken</button>
+                <button class="btn btn-fixed"  onclick="loadPreset('easy','fixed')">Load Solution</button>
+                <button class="btn btn-run"    onclick="runGrade('easy')">&#9654; Run &amp; Grade</button>
+                <button class="btn btn-ai" id="ai-btn-easy" onclick="autoFix('easy')">&#129302; Auto-Fix</button>
+            </div>
+        </div>
+        <div class="editor-grid">
+            <div class="editor-box">
+                <label>✏️ Your Verilog (editable)</label>
+                <textarea class="verilog-editor" id="code-easy">// easy/broken.v
+// Task: 4-bit synchronous counter with synchronous reset
+// BUGS INJECTED (3 total):
+//   1. Line 10: output port declared as &#x27;input&#x27; instead of &#x27;output&#x27;
+//   2. Line 18: undeclared wire &#x27;carry&#x27; used but never declared
+//   3. Line 20: sensitivity list uses &#x27;negedge&#x27; instead of &#x27;posedge&#x27;
+//
+// The agent must fix all 3 bugs so the module compiles and simulates correctly.
+
+module counter_4bit (
+    input  wire        clk,
+    input  wire        rst,      // synchronous reset, active high
+    input  wire [3:0]  count     // BUG 1: should be &#x27;output reg [3:0] count&#x27;
+);
+
+    always @(negedge clk) begin  // BUG 3: should be &#x27;posedge clk&#x27;
+        if (rst) begin
+            count &lt;= 4&#x27;b0000;
+        end else begin
+            count &lt;= count + carry; // BUG 2: &#x27;carry&#x27; is undeclared, should be 4&#x27;b0001
+        end
+    end
+
+endmodule</textarea>
+            </div>
+            <div class="editor-box">
+                <label>📖 Repair Reference (read-only)</label>
+                <textarea class="verilog-editor" id="ref-easy" readonly style="opacity:.55">// easy/correct.v — reference solution (NOT given to agent)
+// Used to generate golden_output.txt
+
+module counter_4bit (
+    input  wire        clk,
+    input  wire        rst,
+    output reg  [3:0]  count
+);
+
+    always @(posedge clk) begin
+        if (rst) begin
+            count &lt;= 4&#x27;b0000;
+        end else begin
+            count &lt;= count + 4&#x27;b0001;
+        end
+    end
+
+endmodule</textarea>
+            </div>
+        </div>
+        <div class="log-panel" id="log-easy">
+            <div class="log-header">
+                <span>Simulation Log</span>
+                <span style="opacity:.5;font-weight:400">Scroll to see all output ↕</span>
+            </div>
+            <div class="log-scroll">
+                <div class="log-body" id="log-body-easy"></div>
+            </div>
+            <div class="fix-tip" id="fix-tip-easy">
+                &#128161; <b>Errors detected!</b> Edit the code above and re-run, or click
+                <b>&#129302; Auto-Fix</b> to let the AI repair it automatically.
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── MEDIUM ─── -->
+    <div class="task-panel">
+        <div class="task-header">
+            <div class="task-title">
+                <h2>Level 02: 4-bit ALU Unit</h2>
+                <p>Behavioral Arithmetic Logic — 10 test vectors</p>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-broken" onclick="loadPreset('medium','broken')">Load Broken</button>
+                <button class="btn btn-fixed"  onclick="loadPreset('medium','fixed')">Load Solution</button>
+                <button class="btn btn-run"    onclick="runGrade('medium')">&#9654; Run &amp; Grade</button>
+                <button class="btn btn-ai" id="ai-btn-medium" onclick="autoFix('medium')">&#129302; Auto-Fix</button>
+            </div>
+        </div>
+        <div class="editor-grid">
+            <div class="editor-box">
+                <label>✏️ Your Verilog (editable)</label>
+                <textarea class="verilog-editor" id="code-medium">// medium/broken.v
+// Task: 4-bit ALU supporting ADD, SUB, AND, OR operations
+//
+// BUGS INJECTED (2 semantic — compiles fine, wrong simulation output):
+//   1. SUB operation uses &#x27;+&#x27; instead of &#x27;-&#x27;  (line 24)
+//   2. AND operation uses &#x27;|&#x27; instead of &#x27;&amp;&#x27;  (line 27)
+//
+// The module compiles cleanly with iverilog.
+// The agent cannot see compile errors — it must deduce bugs from
+// simulation output mismatches.
+
+module alu_4bit (
+    input  wire [3:0]  a,
+    input  wire [3:0]  b,
+    input  wire [1:0]  op,      // 00=ADD 01=SUB 10=AND 11=OR
+    output reg  [3:0]  result,
+    output reg         zero     // 1 when result == 0
+);
+
+    always @(*) begin
+        case (op)
+            2&#x27;b00: result = a + b;           // ADD  — correct
+            2&#x27;b01: result = a + b;           // SUB  — BUG 1: should be a - b
+            2&#x27;b10: result = a | b;           // AND  — BUG 2: should be a &amp; b
+            2&#x27;b11: result = a | b;           // OR   — correct
+            default: result = 4&#x27;b0000;
+        endcase
+        zero = (result == 4&#x27;b0000) ? 1&#x27;b1 : 1&#x27;b0;
+    end
+
+endmodule</textarea>
+            </div>
+            <div class="editor-box">
+                <label>📖 Repair Reference (read-only)</label>
+                <textarea class="verilog-editor" id="ref-medium" readonly style="opacity:.55">// medium/correct.v — reference solution (NOT given to agent)
+ 
+module alu_4bit (
+    input  wire [3:0]  a,
+    input  wire [3:0]  b,
+    input  wire [1:0]  op,
+    output reg  [3:0]  result,
+    output reg         zero
+);
+ 
+    always @(*) begin
+        case (op)
+            2&#x27;b00: result = a + b;
+            2&#x27;b01: result = a - b;
+            2&#x27;b10: result = a &amp; b;
+            2&#x27;b11: result = a | b;
+            default: result = 4&#x27;b0000;
+        endcase
+        zero = (result == 4&#x27;b0000) ? 1&#x27;b1 : 1&#x27;b0;
+    end
+ 
+endmodule</textarea>
+            </div>
+        </div>
+        <div class="log-panel" id="log-medium">
+            <div class="log-header">
+                <span>Simulation Log</span>
+                <span style="opacity:.5;font-weight:400">Scroll to see all output ↕</span>
+            </div>
+            <div class="log-scroll">
+                <div class="log-body" id="log-body-medium"></div>
+            </div>
+            <div class="fix-tip" id="fix-tip-medium">
+                &#128161; <b>Errors detected!</b> Edit the code above and re-run, or click
+                <b>&#129302; Auto-Fix</b> to let the AI repair it automatically.
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── HARD ─── -->
+    <div class="task-panel">
+        <div class="task-header">
+            <div class="task-title">
+                <h2>Level 03: Traffic Light FSM</h2>
+                <p>Finite State Machine Transitions — 20 test vectors</p>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-broken" onclick="loadPreset('hard','broken')">Load Broken</button>
+                <button class="btn btn-fixed"  onclick="loadPreset('hard','fixed')">Load Solution</button>
+                <button class="btn btn-run"    onclick="runGrade('hard')">&#9654; Run &amp; Grade</button>
+                <button class="btn btn-ai" id="ai-btn-hard" onclick="autoFix('hard')">&#129302; Auto-Fix</button>
+            </div>
+        </div>
+        <div class="editor-grid">
+            <div class="editor-box">
+                <label>✏️ Your Verilog (editable)</label>
+                <textarea class="verilog-editor" id="code-hard">// hard/broken.v
+// Task: Traffic light FSM controller
+//
+// States: RED(00) -&gt; GREEN(01) -&gt; YELLOW(10) -&gt; RED(00) -&gt; ...
+// Each state holds for N clock cycles (configured via parameter)
+// Outputs: red, green, yellow — exactly one HIGH at a time
+//
+// BUGS INJECTED (3 FSM bugs):
+//   1. YELLOW state next-state transition goes to GREEN instead of RED  (line 44)
+//   2. In GREEN state, the &#x27;green&#x27; output is not asserted (missing assign) (line 55)
+//   3. Counter reset missing in RED state transition — counter never resets (line 36)
+//
+// The module compiles. Simulation output will be wrong.
+
+module traffic_light (
+    input  wire clk,
+    input  wire rst,
+    output reg  red,
+    output reg  green,
+    output reg  yellow
+);
+
+    parameter HOLD_CYCLES = 3;
+
+    // State encoding
+    localparam RED_S    = 2&#x27;b00;
+    localparam GREEN_S  = 2&#x27;b01;
+    localparam YELLOW_S = 2&#x27;b10;
+
+    reg [1:0] state, next_state;
+    reg [2:0] counter;   // counts cycles in current state
+
+    // State register
+    always @(posedge clk) begin
+        if (rst) begin
+            state   &lt;= RED_S;
+            counter &lt;= 3&#x27;d0;
+        end else begin
+            if (counter == HOLD_CYCLES - 1) begin
+                state   &lt;= next_state;
+                // BUG 3: counter &lt;= 3&#x27;d0 is missing here
+            end else begin
+                counter &lt;= counter + 3&#x27;d1;
+            end
+        end
+    end
+
+    // Next state logic
+    always @(*) begin
+        case (state)
+            RED_S:    next_state = GREEN_S;
+            GREEN_S:  next_state = YELLOW_S;
+            YELLOW_S: next_state = GREEN_S;  // BUG 1: should be RED_S
+            default:  next_state = RED_S;
+        endcase
+    end
+
+    // Output logic
+    always @(*) begin
+        red    = 1&#x27;b0;
+        green  = 1&#x27;b0;
+        yellow = 1&#x27;b0;
+        case (state)
+            RED_S:    red    = 1&#x27;b1;
+            GREEN_S:  green  = 1&#x27;b0;  // BUG 2: should be green = 1&#x27;b1
+            YELLOW_S: yellow = 1&#x27;b1;
+            default:  red    = 1&#x27;b1;
+        endcase
+    end
+
+endmodule</textarea>
+            </div>
+            <div class="editor-box">
+                <label>📖 Repair Reference (read-only)</label>
+                <textarea class="verilog-editor" id="ref-hard" readonly style="opacity:.55">// hard/correct.v — reference solution (NOT given to agent)
+
+module traffic_light (
+    input  wire clk,
+    input  wire rst,
+    output reg  red,
+    output reg  green,
+    output reg  yellow
+);
+
+    parameter HOLD_CYCLES = 3;
+
+    localparam RED_S    = 2&#x27;b00;
+    localparam GREEN_S  = 2&#x27;b01;
+    localparam YELLOW_S = 2&#x27;b10;
+
+    reg [1:0] state, next_state;
+    reg [2:0] counter;
+
+    always @(posedge clk) begin
+        if (rst) begin
+            state   &lt;= RED_S;
+            counter &lt;= 3&#x27;d0;
+        end else begin
+            if (counter == HOLD_CYCLES - 1) begin
+                state   &lt;= next_state;
+                counter &lt;= 3&#x27;d0;       // fixed: counter resets on transition
+            end else begin
+                counter &lt;= counter + 3&#x27;d1;
+            end
+        end
+    end
+
+    always @(*) begin
+        case (state)
+            RED_S:    next_state = GREEN_S;
+            GREEN_S:  next_state = YELLOW_S;
+            YELLOW_S: next_state = RED_S;   // fixed: back to RED
+            default:  next_state = RED_S;
+        endcase
+    end
+
+    always @(*) begin
+        red    = 1&#x27;b0;
+        green  = 1&#x27;b0;
+        yellow = 1&#x27;b0;
+        case (state)
+            RED_S:    red    = 1&#x27;b1;
+            GREEN_S:  green  = 1&#x27;b1;  // fixed: assert green
+            YELLOW_S: yellow = 1&#x27;b1;
+            default:  red    = 1&#x27;b1;
+        endcase
+    end
+
+endmodule</textarea>
+            </div>
+        </div>
+        <div class="log-panel" id="log-hard">
+            <div class="log-header">
+                <span>Simulation Log</span>
+                <span style="opacity:.5;font-weight:400">Scroll to see all output ↕</span>
+            </div>
+            <div class="log-scroll">
+                <div class="log-body" id="log-body-hard"></div>
+            </div>
+            <div class="fix-tip" id="fix-tip-hard">
+                &#128161; <b>Errors detected!</b> Edit the code above and re-run, or click
+                <b>&#129302; Auto-Fix</b> to let the AI repair it automatically.
+            </div>
+        </div>
+    </div>
+
+<script>
+const PRESETS = {
+    easy:   { broken: "// easy/broken.v\n// Task: 4-bit synchronous counter with synchronous reset\n// BUGS INJECTED (3 total):\n//   1. Line 10: output port declared as 'input' instead of 'output'\n//   2. Line 18: undeclared wire 'carry' used but never declared\n//   3. Line 20: sensitivity list uses 'negedge' instead of 'posedge'\n//\n// The agent must fix all 3 bugs so the module compiles and simulates correctly.\n\nmodule counter_4bit (\n    input  wire        clk,\n    input  wire        rst,      // synchronous reset, active high\n    input  wire [3:0]  count     // BUG 1: should be 'output reg [3:0] count'\n);\n\n    always @(negedge clk) begin  // BUG 3: should be 'posedge clk'\n        if (rst) begin\n            count <= 4'b0000;\n        end else begin\n            count <= count + carry; // BUG 2: 'carry' is undeclared, should be 4'b0001\n        end\n    end\n\nendmodule",   fixed: "// easy/correct.v \u2014 reference solution (NOT given to agent)\n// Used to generate golden_output.txt\n\nmodule counter_4bit (\n    input  wire        clk,\n    input  wire        rst,\n    output reg  [3:0]  count\n);\n\n    always @(posedge clk) begin\n        if (rst) begin\n            count <= 4'b0000;\n        end else begin\n            count <= count + 4'b0001;\n        end\n    end\n\nendmodule" },
+    medium: { broken: "// medium/broken.v\n// Task: 4-bit ALU supporting ADD, SUB, AND, OR operations\n//\n// BUGS INJECTED (2 semantic \u2014 compiles fine, wrong simulation output):\n//   1. SUB operation uses '+' instead of '-'  (line 24)\n//   2. AND operation uses '|' instead of '&'  (line 27)\n//\n// The module compiles cleanly with iverilog.\n// The agent cannot see compile errors \u2014 it must deduce bugs from\n// simulation output mismatches.\n\nmodule alu_4bit (\n    input  wire [3:0]  a,\n    input  wire [3:0]  b,\n    input  wire [1:0]  op,      // 00=ADD 01=SUB 10=AND 11=OR\n    output reg  [3:0]  result,\n    output reg         zero     // 1 when result == 0\n);\n\n    always @(*) begin\n        case (op)\n            2'b00: result = a + b;           // ADD  \u2014 correct\n            2'b01: result = a + b;           // SUB  \u2014 BUG 1: should be a - b\n            2'b10: result = a | b;           // AND  \u2014 BUG 2: should be a & b\n            2'b11: result = a | b;           // OR   \u2014 correct\n            default: result = 4'b0000;\n        endcase\n        zero = (result == 4'b0000) ? 1'b1 : 1'b0;\n    end\n\nendmodule", fixed: "// medium/correct.v \u2014 reference solution (NOT given to agent)\n \nmodule alu_4bit (\n    input  wire [3:0]  a,\n    input  wire [3:0]  b,\n    input  wire [1:0]  op,\n    output reg  [3:0]  result,\n    output reg         zero\n);\n \n    always @(*) begin\n        case (op)\n            2'b00: result = a + b;\n            2'b01: result = a - b;\n            2'b10: result = a & b;\n            2'b11: result = a | b;\n            default: result = 4'b0000;\n        endcase\n        zero = (result == 4'b0000) ? 1'b1 : 1'b0;\n    end\n \nendmodule" },
+    hard:   { broken: "// hard/broken.v\n// Task: Traffic light FSM controller\n//\n// States: RED(00) -> GREEN(01) -> YELLOW(10) -> RED(00) -> ...\n// Each state holds for N clock cycles (configured via parameter)\n// Outputs: red, green, yellow \u2014 exactly one HIGH at a time\n//\n// BUGS INJECTED (3 FSM bugs):\n//   1. YELLOW state next-state transition goes to GREEN instead of RED  (line 44)\n//   2. In GREEN state, the 'green' output is not asserted (missing assign) (line 55)\n//   3. Counter reset missing in RED state transition \u2014 counter never resets (line 36)\n//\n// The module compiles. Simulation output will be wrong.\n\nmodule traffic_light (\n    input  wire clk,\n    input  wire rst,\n    output reg  red,\n    output reg  green,\n    output reg  yellow\n);\n\n    parameter HOLD_CYCLES = 3;\n\n    // State encoding\n    localparam RED_S    = 2'b00;\n    localparam GREEN_S  = 2'b01;\n    localparam YELLOW_S = 2'b10;\n\n    reg [1:0] state, next_state;\n    reg [2:0] counter;   // counts cycles in current state\n\n    // State register\n    always @(posedge clk) begin\n        if (rst) begin\n            state   <= RED_S;\n            counter <= 3'd0;\n        end else begin\n            if (counter == HOLD_CYCLES - 1) begin\n                state   <= next_state;\n                // BUG 3: counter <= 3'd0 is missing here\n            end else begin\n                counter <= counter + 3'd1;\n            end\n        end\n    end\n\n    // Next state logic\n    always @(*) begin\n        case (state)\n            RED_S:    next_state = GREEN_S;\n            GREEN_S:  next_state = YELLOW_S;\n            YELLOW_S: next_state = GREEN_S;  // BUG 1: should be RED_S\n            default:  next_state = RED_S;\n        endcase\n    end\n\n    // Output logic\n    always @(*) begin\n        red    = 1'b0;\n        green  = 1'b0;\n        yellow = 1'b0;\n        case (state)\n            RED_S:    red    = 1'b1;\n            GREEN_S:  green  = 1'b0;  // BUG 2: should be green = 1'b1\n            YELLOW_S: yellow = 1'b1;\n            default:  red    = 1'b1;\n        endcase\n    end\n\nendmodule",   fixed: "// hard/correct.v \u2014 reference solution (NOT given to agent)\n\nmodule traffic_light (\n    input  wire clk,\n    input  wire rst,\n    output reg  red,\n    output reg  green,\n    output reg  yellow\n);\n\n    parameter HOLD_CYCLES = 3;\n\n    localparam RED_S    = 2'b00;\n    localparam GREEN_S  = 2'b01;\n    localparam YELLOW_S = 2'b10;\n\n    reg [1:0] state, next_state;\n    reg [2:0] counter;\n\n    always @(posedge clk) begin\n        if (rst) begin\n            state   <= RED_S;\n            counter <= 3'd0;\n        end else begin\n            if (counter == HOLD_CYCLES - 1) begin\n                state   <= next_state;\n                counter <= 3'd0;       // fixed: counter resets on transition\n            end else begin\n                counter <= counter + 3'd1;\n            end\n        end\n    end\n\n    always @(*) begin\n        case (state)\n            RED_S:    next_state = GREEN_S;\n            GREEN_S:  next_state = YELLOW_S;\n            YELLOW_S: next_state = RED_S;   // fixed: back to RED\n            default:  next_state = RED_S;\n        endcase\n    end\n\n    always @(*) begin\n        red    = 1'b0;\n        green  = 1'b0;\n        yellow = 1'b0;\n        case (state)\n            RED_S:    red    = 1'b1;\n            GREEN_S:  green  = 1'b1;  // fixed: assert green\n            YELLOW_S: yellow = 1'b1;\n            default:  red    = 1'b1;\n        endcase\n    end\n\nendmodule" }
+};
+
+const TASK_SPECS = {
+    easy:   "4-bit synchronous up-counter. Fix port direction (output reg), clock edge (posedge), and undeclared signal.",
+    medium: "4-bit ALU with ops ADD/SUB/AND/OR. Fix wrong operators in SUB and AND cases.",
+    hard:   "3-state traffic light FSM: RED->GREEN->YELLOW->RED. Fix state transitions and timer thresholds."
+};
+
+const lastLog = {};
+
+function loadPreset(tid, mode) {
+    document.getElementById(`code-${tid}`).value = PRESETS[tid][mode];
+}
+
+async function runGrade(tid) {
+    const code = document.getElementById(`code-${tid}`).value;
+    const logPanel = document.getElementById(`log-${tid}`);
+    const logBody  = document.getElementById(`log-body-${tid}`);
+    const fixTip   = document.getElementById(`fix-tip-${tid}`);
+
+    logPanel.style.display = "block";
+    fixTip.style.display   = "none";
+    logBody.innerHTML = "<span style='color:var(--acc)'>&#9889; Compiling and simulating...</span>";
+
+    try {
+        const res = await fetch(`/grade/${tid}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ verilog_code: code })
+        });
+        const data = await res.json();
+
+        const score   = data.score ?? 0;
+        const total   = data.total ?? "?";
+        const passed  = data.passed ?? 0;
+        const isError = data.status === "compile_error" || data.status === "logic_error";
+        const scoreClass = score >= 0.85 ? "score-pass" : score >= 0.35 ? "score-warn" : "score-fail";
+
+        const scoreLine = `<div class="score-badge ${scoreClass}">SCORE: ${score.toFixed(2)} &nbsp;|&nbsp; ${passed}/${total} vectors passed</div>`;
+        const logText   = (data.logs || "No output").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+        lastLog[tid] = data.logs || "";
+        logBody.innerHTML = scoreLine + "
+
+" + logText;
+
+        if (isError) fixTip.style.display = "block";
+        else fixTip.style.display = "none";
+
+        logPanel.querySelector(".log-scroll").scrollTop = 0;
+
+    } catch(e) {
+        logBody.innerHTML = `<span style='color:var(--r)'>&#10060; Request failed: ${e.message}</span>`;
+        fixTip.style.display = "block";
+    }
+}
+
+async function autoFix(tid) {
+    const code    = document.getElementById(`code-${tid}`).value;
+    const logBody = document.getElementById(`log-body-${tid}`);
+    const logPanel= document.getElementById(`log-${tid}`);
+    const fixTip  = document.getElementById(`fix-tip-${tid}`);
+    const btn     = document.getElementById(`ai-btn-${tid}`);
+
+    logPanel.style.display = "block";
+    fixTip.style.display   = "none";
+    btn.disabled = true;
+    btn.textContent = "&#129302; Thinking...";
+    logBody.innerHTML = "<span style='color:#a78bfa'>&#129302; Sending to AI for analysis and repair...</span>";
+
+    try {
+        const res = await fetch(`/ai-fix/${tid}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                verilog_code: code,
+                error_log: lastLog[tid] || "No previous run. Inspect the code for common Verilog bugs.",
+                task_spec: TASK_SPECS[tid]
+            })
+        });
+        const data = await res.json();
+
+        if (data.status === "ok" && data.fixed_code) {
+            document.getElementById(`code-${tid}`).value = data.fixed_code;
+            logBody.innerHTML = `<span style='color:#a78bfa'>&#129302; ${data.explanation}</span>
+<span style='color:var(--g)'>&#10003; Code updated — running grader now...</span>`;
+            // Auto-run grader with fixed code
+            setTimeout(() => runGrade(tid), 600);
+        } else {
+            logBody.innerHTML = `<span style='color:var(--r)'>&#10060; AI fix failed: ${data.explanation}</span>`;
+            fixTip.style.display = "block";
+        }
+    } catch(e) {
+        logBody.innerHTML = `<span style='color:var(--r)'>&#10060; AI request failed: ${e.message}</span>`;
+        fixTip.style.display = "block";
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "&#129302; Auto-Fix";
+    }
+}
+</script>
+</body>
+</html>

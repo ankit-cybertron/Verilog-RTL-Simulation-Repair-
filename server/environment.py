@@ -63,7 +63,7 @@ class RTLRepairEnvironment(Environment):
             vectors_total=self._task_config["vectors_total"],
             step_count=0,
             max_steps=self._task_config["max_steps"],
-            reward=0.0,
+            reward=0.02,
             done=False,
         )
 
